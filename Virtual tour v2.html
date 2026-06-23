@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>エメラルドマンション府中</title>
+<title>バーチャルツアー</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -200,7 +200,39 @@
     backdrop-filter: blur(4px);
   }
 
-  /* ── ヒント ── */
+  /* ── 間取り図 ── */
+  #floorplan {
+    position: fixed;
+    bottom: 90px;
+    right: 16px;
+    z-index: 100;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  #floorplan img {
+    display: block;
+    width: 120px;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(200,169,126,0.4);
+    opacity: 0.75;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(4px);
+  }
+  #floorplan.expanded img {
+    width: 260px;
+    opacity: 0.95;
+  }
+  #floorplan:hover img { opacity: 0.95; }
+  #floorplan-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: #888;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+
   #hint {
     position: fixed;
     top: 50%;
@@ -324,7 +356,7 @@
 
 <div id="header">
   <div class="dot"></div>
-  <h1>エメラルドマンション府中</h1>
+  <h1>Virtual Tour</h1>
   <div id="room-name-area">
     <span id="room-name">—</span>
     <div id="shot-btns"></div>
@@ -332,6 +364,11 @@
 </div>
 
 <button id="edit-btn">⚙ 設定</button>
+
+<div id="floorplan" onclick="toggleFloorplan()">
+  <img src="https://image.homes.jp/smallimg/image.php?file=http%3A%2F%2Fimg.homes.jp%2F3550356%2Fsale%2F616%2F1%2F1%2Fn7z2.jpg&width=600&height=600" alt="間取り図">
+  <div id="floorplan-label">間取り図 タップで拡大</div>
+</div>
 
 <div id="room-list"></div>
 
@@ -710,6 +747,13 @@ document.getElementById('apply-btn').addEventListener('click', () => {
   loadRoom(currentRoomId, false);
   editPanel.classList.remove('open');
 });
+
+function toggleFloorplan() {
+  document.getElementById('floorplan').classList.toggle('expanded');
+  const label = document.getElementById('floorplan-label');
+  const isExpanded = document.getElementById('floorplan').classList.contains('expanded');
+  label.textContent = isExpanded ? '間取り図 タップで縮小' : '間取り図 タップで拡大';
+}
 
 // ── 初期化 ──
 buildRoomList();
