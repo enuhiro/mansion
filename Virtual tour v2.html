@@ -154,6 +154,23 @@
   }
   .room-thumb.active p { color: #c8a97e; }
 
+  /* ── 通常写真表示 ── */
+  #photo-view {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: #0a0a0f;
+    align-items: center;
+    justify-content: center;
+  }
+  #photo-view.active { display: flex; }
+  #photo-view img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
   /* ── ホットスポット ── */
   .hotspot {
     position: absolute;
@@ -382,6 +399,7 @@
 </div>
 
 <canvas id="tour-canvas"></canvas>
+<div id="photo-view"><img id="photo-img" src="" alt=""></div>
 
 <div id="header">
   <div class="dot"></div>
@@ -538,6 +556,24 @@ function loadRoom(roomId, animate = true, shotIndex = 0) {
   }
 
   const imageUrl = room.shots[shotIndex].imageUrl;
+  const is360 = (room.type !== 'photo');
+
+  const photoView = document.getElementById('photo-view');
+  const photoImg  = document.getElementById('photo-img');
+
+  if (!is360) {
+    // 通常写真モード
+    if (sphereMesh) { scene.remove(sphereMesh); sphereMesh.material.dispose(); sphereMesh = null; }
+    hotspotContainer.innerHTML = '';
+    photoImg.src = imageUrl;
+    photoView.classList.add('active');
+    document.getElementById('loading').classList.add('hidden');
+    if (animate) targetLon = lon + 15;
+    return;
+  }
+
+  // 360°モード
+  photoView.classList.remove('active');
 
   const loadTexture = (url) => {
     if (textureCache[url]) return Promise.resolve(textureCache[url]);
@@ -713,12 +749,19 @@ function buildEditInputs() {
         <button class="remove-btn remove-room-btn" data-i="${i}" title="削除">×</button>
       </label>
       <input type="text" placeholder="部屋名" value="${room.name}" data-field="name" data-i="${i}">
+      <select data-i="${i}" data-field="type" style="margin-top:5px;width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e8e4dd;font-size:12px;padding:7px 10px;outline:none;">
+        <option value="360" ${room.type !== 'photo' ? 'selected' : ''}>360°画像</option>
+        <option value="photo" ${room.type === 'photo' ? 'selected' : ''}>通常写真</option>
+      </select>
       <small style="margin-top:4px;display:block;">ショット（複数追加で切り替えボタンが出ます）</small>
       <div class="shots-wrap" data-ri="${i}">${shotsHtml}</div>
       <button class="add-shot-btn" data-ri="${i}" style="margin-top:5px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ ショット追加</button>`;
     roomInputs.appendChild(div);
   });
 
+  roomInputs.querySelectorAll('select[data-field="type"]').forEach(sel => {
+    sel.addEventListener('change', e => { rooms[e.target.dataset.i].type = e.target.value; });
+  });
   roomInputs.querySelectorAll('input[data-field="name"]').forEach(inp => {
     inp.addEventListener('input', e => { rooms[e.target.dataset.i].name = e.target.value; });
   });
@@ -752,7 +795,7 @@ function buildEditInputs() {
 }
 
 document.getElementById('add-room-btn').addEventListener('click', () => {
-  rooms.push({ id: 'room_' + Date.now(), name: '新しい部屋', shots: [{ label: '', imageUrl: '' }], hotspots: [] });
+  rooms.push({ id: 'room_' + Date.now(), name: '新しい部屋', type: '360', shots: [{ label: '', imageUrl: '' }], hotspots: [] });
   buildEditInputs();
 });
 
