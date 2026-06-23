@@ -466,6 +466,17 @@
     <button id="close-panel">×</button>
   </div>
   <div class="panel-section">
+    <h3>基本設定</h3>
+    <div class="field" style="margin-bottom:10px;">
+      <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">タイトル（左上に表示）</label>
+      <input type="text" id="tour-title-input" placeholder="例：〇〇マンション内見" style="width:100%;background:#0f0f14;border:1px solid #2a2a36;border-radius:8px;color:#e8e4dd;font-size:14px;padding:8px 10px;outline:none;">
+    </div>
+    <div class="field">
+      <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">間取り図画像URL</label>
+      <input type="text" id="floorplan-url-input" placeholder="https://..." style="width:100%;background:#0f0f14;border:1px solid #2a2a36;border-radius:8px;color:#e8e4dd;font-size:14px;padding:8px 10px;outline:none;">
+    </div>
+  </div>
+  <div class="panel-section">
     <h3>モード</h3>
     <select id="mode-select" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e8e4dd;font-size:13px;padding:8px 10px;outline:none;">
       <option value="naiken">内見モード（間取り図＋共通リンク）</option>
@@ -500,7 +511,9 @@
 // グローバル設定
 // ────────────────────────────────────────
 let tourConfig = {
-  mode: 'naiken', // 'naiken' or 'photoex'
+  mode: 'naiken',
+  title: 'Virtual Tour',
+  floorplanUrl: 'https://image.homes.jp/smallimg/image.php?file=http%3A%2F%2Fimg.homes.jp%2F3550356%2Fsale%2F616%2F1%2F1%2Fn7z2.jpg&width=600&height=600',
   globalLinks: [
     { label: 'Googleマップで見る', url: 'https://maps.google.com' },
   ]
@@ -936,6 +949,8 @@ const roomInputs = document.getElementById('room-inputs');
 editBtn.addEventListener('click', () => {
   editPanel.classList.add('open');
   document.getElementById('mode-select').value = tourConfig.mode;
+  document.getElementById('tour-title-input').value = tourConfig.title;
+  document.getElementById('floorplan-url-input').value = tourConfig.floorplanUrl;
   updateModeSectionVisibility();
   buildGlobalLinkInputs();
   buildEditInputs();
@@ -1086,6 +1101,10 @@ document.getElementById('add-room-btn').addEventListener('click', () => {
 
 document.getElementById('apply-btn').addEventListener('click', () => {
   // テクスチャキャッシュをクリア（URLが変わった場合）
+  tourConfig.title = document.getElementById('tour-title-input').value || 'Virtual Tour';
+  tourConfig.floorplanUrl = document.getElementById('floorplan-url-input').value;
+  document.querySelector('#header h1').textContent = tourConfig.title;
+  document.querySelector('#floorplan img').src = tourConfig.floorplanUrl;
   Object.keys(textureCache).forEach(k => delete textureCache[k]);
   buildRoomList();
   renderGlobalLinks();
@@ -1140,6 +1159,7 @@ function renderRoomLinks(room) {
 }
 
 // ── 初期化 ──
+document.querySelector('#header h1').textContent = tourConfig.title;
 buildRoomList();
 renderGlobalLinks();
 animate();
