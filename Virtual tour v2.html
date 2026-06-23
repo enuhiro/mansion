@@ -240,7 +240,19 @@
     border-radius: 12px;
     opacity: 1;
   }
-  #floorplan:hover img { opacity: 0.95; }
+  #floorplan-close {
+    display: none;
+    margin-top: 16px;
+    padding: 8px 28px;
+    background: rgba(200,169,126,0.2);
+    border: 1px solid rgba(200,169,126,0.6);
+    border-radius: 20px;
+    color: #c8a97e;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  #floorplan.expanded #floorplan-close { display: block; }
   #floorplan-label {
     font-size: 9px;
     letter-spacing: 0.1em;
@@ -385,6 +397,7 @@
 <div id="floorplan" onclick="toggleFloorplan()">
   <img src="https://image.homes.jp/smallimg/image.php?file=http%3A%2F%2Fimg.homes.jp%2F3550356%2Fsale%2F616%2F1%2F1%2Fn7z2.jpg&width=600&height=600" alt="間取り図">
   <div id="floorplan-label">間取り図 タップで拡大</div>
+  <button id="floorplan-close" onclick="event.stopPropagation(); closeFloorplan()">閉じる</button>
 </div>
 
 <div id="room-list"></div>
@@ -751,10 +764,15 @@ document.getElementById('apply-btn').addEventListener('click', () => {
 });
 
 function toggleFloorplan() {
-  document.getElementById('floorplan').classList.toggle('expanded');
-  const label = document.getElementById('floorplan-label');
-  const isExpanded = document.getElementById('floorplan').classList.contains('expanded');
-  label.textContent = isExpanded ? '間取り図 タップで縮小' : '間取り図 タップで拡大';
+  const fp = document.getElementById('floorplan');
+  if (!fp.classList.contains('expanded')) {
+    fp.classList.add('expanded');
+    document.getElementById('floorplan-label').textContent = '';
+  }
+}
+function closeFloorplan() {
+  document.getElementById('floorplan').classList.remove('expanded');
+  document.getElementById('floorplan-label').textContent = '間取り図 タップで拡大';
 }
 
 // ── 初期化 ──
