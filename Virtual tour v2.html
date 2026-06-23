@@ -555,12 +555,65 @@ window.addEventListener('touchmove', e => {
   }
 }, { passive: true });
 
-// ── 通常写真ピンチズーム ──
+// ── 通常写真 パン＆ズーム ──
 let photoScale = 1, photoTargetScale = 1;
+let photoX = 0, photoY = 0;
 let photoLastPinchDist = null;
+let photoIsDragging = false;
+let photoPrevX = 0, photoPrevY = 0;
 
-document.getElementById('photo-view').addEventListener('touchstart', e => {
-  if (e.touches.length === 2) {
+const photoView = document.getElementById('photo-view');
+const photoImg  = document.getElementById('photo-img');
+
+function applyPhotoTransform() {
+  photoImg.style.transform = `translate(${photoX}px, ${photoY}px) scale(${photoScale})`;
+  photoImg.style.transformOrigin = 'center center';
+}
+
+function clampPhotoPos() {
+  // スケール1のときは中央固定
+  if (photoScale <= 1) { photoX = 0; photoY = 0; }
+}
+
+// ドラッグで移動（拡大時のみ）
+photoView.addEventListener('mousedown', e => {
+  if (photoScale <= 1) return;
+  photoIsDragging = true;
+  photoPrevX = e.clientX; photoPrevY = e.clientY;
+  photoView.style.cursor = 'grabbing';
+});
+window.addEventListener('mouseup', () => { photoIsDragging = false; photoView.style.cursor = ''; });
+window.addEventListener('mousemove', e => {
+  if (!photoIsDragging) return;
+  photoX += e.clientX - photoPrevX;
+  photoY += e.clientY - photoPrevY;
+  photoPrevX = e.clientX; photoPrevY = e.clientY;
+  applyPhotoTransform();
+});
+
+// PCホイールズーム（マウス位置基準）
+photoView.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = photoView.getBoundingClientRect();
+  const mx = e.clientX - rect.left - rect.width / 2;
+  const my = e.clientY - rect.top  - rect.height / 2;
+  const prevScale = photoScale;
+  photoScale = Math.max(1, Math.min(8, photoScale * (e.deltaY < 0 ? 1.1 : 0.9)));
+  const ratio = photoScale / prevScale;
+  photoX = mx - ratio * (mx - photoX);
+  photoY = my - ratio * (my - photoY);
+  clampPhotoPos();
+  applyPhotoTransform();
+}, { passive: false });
+
+// タッチ：1本指ドラッグ（拡大時）/ 2本指ピンチズーム
+photoView.addEventListener('touchstart', e => {
+  if (e.touches.length === 1 && photoScale > 1) {
+    photoIsDragging = true;
+    photoPrevX = e.touches[0].clientX;
+    photoPrevY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    photoIsDragging = false;
     photoLastPinchDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
@@ -568,27 +621,38 @@ document.getElementById('photo-view').addEventListener('touchstart', e => {
   }
 }, { passive: true });
 
-document.getElementById('photo-view').addEventListener('touchmove', e => {
-  if (e.touches.length === 2 && photoLastPinchDist !== null) {
+photoView.addEventListener('touchmove', e => {
+  if (e.touches.length === 1 && photoIsDragging) {
+    photoX += e.touches[0].clientX - photoPrevX;
+    photoY += e.touches[0].clientY - photoPrevY;
+    photoPrevX = e.touches[0].clientX;
+    photoPrevY = e.touches[0].clientY;
+    applyPhotoTransform();
+  } else if (e.touches.length === 2 && photoLastPinchDist !== null) {
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    const rect = photoView.getBoundingClientRect();
+    const mx = cx - rect.left - rect.width / 2;
+    const my = cy - rect.top  - rect.height / 2;
     const dist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
-    photoTargetScale = Math.max(1, Math.min(5, photoTargetScale * (dist / photoLastPinchDist)));
+    const prevScale = photoScale;
+    photoScale = Math.max(1, Math.min(8, photoScale * (dist / photoLastPinchDist)));
+    const ratio = photoScale / prevScale;
+    photoX = mx - ratio * (mx - photoX);
+    photoY = my - ratio * (my - photoY);
+    clampPhotoPos();
     photoLastPinchDist = dist;
-    document.getElementById('photo-img').style.transform = `scale(${photoTargetScale})`;
+    applyPhotoTransform();
   }
 }, { passive: true });
 
-document.getElementById('photo-view').addEventListener('touchend', e => {
+photoView.addEventListener('touchend', e => {
   if (e.touches.length < 2) photoLastPinchDist = null;
+  if (e.touches.length === 0) photoIsDragging = false;
 });
-
-// PCマウスホイールで通常写真ズーム
-document.getElementById('photo-view').addEventListener('wheel', e => {
-  photoTargetScale = Math.max(1, Math.min(5, photoTargetScale - e.deltaY * 0.005));
-  document.getElementById('photo-img').style.transform = `scale(${photoTargetScale})`;
-}, { passive: true });
 
 // ジャイロ
 let deviceAlpha = 0, deviceBeta = 0, deviceGamma = 0;
@@ -609,8 +673,9 @@ function loadRoom(roomId, animate = true, shotIndex = 0) {
   currentRoomId = roomId;
   currentShotIndex = shotIndex;
   targetFov = 75;
-  photoTargetScale = 1;
-  document.getElementById('photo-img').style.transform = 'scale(1)';
+  photoScale = 1; photoTargetScale = 1;
+  photoX = 0; photoY = 0;
+  applyPhotoTransform();
 
   // ルームリストUI更新
   document.querySelectorAll('.room-thumb').forEach(el => {
