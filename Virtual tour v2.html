@@ -498,6 +498,7 @@ let isDragging = false;
 let prevX = 0, prevY = 0;
 let lon = 0, lat = 0;
 let targetLon = 0, targetLat = 0;
+let fov = 75, targetFov = 75; // 360°視野角
 
 canvas.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
 window.addEventListener('mouseup', () => isDragging = false);
@@ -508,13 +509,85 @@ window.addEventListener('mousemove', e => {
   prevX = e.clientX; prevY = e.clientY;
 });
 
-canvas.addEventListener('touchstart', e => { isDragging = true; prevX = e.touches[0].clientX; prevY = e.touches[0].clientY; }, { passive: true });
-window.addEventListener('touchend', () => isDragging = false);
+// PCマウスホイールで360°ズーム
+canvas.addEventListener('wheel', e => {
+  targetFov = Math.max(30, Math.min(110, targetFov + e.deltaY * 0.05));
+}, { passive: true });
+
+// タッチ操作（1本指:視点移動 / 2本指:ピンチズーム）
+let lastPinchDist = null;
+
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    isDragging = true;
+    prevX = e.touches[0].clientX;
+    prevY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    isDragging = false;
+    lastPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, { passive: true });
+
+window.addEventListener('touchend', e => {
+  if (e.touches.length < 2) lastPinchDist = null;
+  if (e.touches.length === 0) isDragging = false;
+});
+
 window.addEventListener('touchmove', e => {
-  if (!isDragging) return;
-  targetLon -= (e.touches[0].clientX - prevX) * 0.3;
-  targetLat += (e.touches[0].clientY - prevY) * 0.15;
-  prevX = e.touches[0].clientX; prevY = e.touches[0].clientY;
+  if (e.touches.length === 1 && isDragging) {
+    targetLon -= (e.touches[0].clientX - prevX) * 0.3;
+    targetLat += (e.touches[0].clientY - prevY) * 0.15;
+    prevX = e.touches[0].clientX;
+    prevY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    if (lastPinchDist !== null) {
+      const delta = lastPinchDist - dist;
+      targetFov = Math.max(30, Math.min(110, targetFov + delta * 0.15));
+    }
+    lastPinchDist = dist;
+  }
+}, { passive: true });
+
+// ── 通常写真ピンチズーム ──
+let photoScale = 1, photoTargetScale = 1;
+let photoLastPinchDist = null;
+
+document.getElementById('photo-view').addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    photoLastPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, { passive: true });
+
+document.getElementById('photo-view').addEventListener('touchmove', e => {
+  if (e.touches.length === 2 && photoLastPinchDist !== null) {
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    photoTargetScale = Math.max(1, Math.min(5, photoTargetScale * (dist / photoLastPinchDist)));
+    photoLastPinchDist = dist;
+    document.getElementById('photo-img').style.transform = `scale(${photoTargetScale})`;
+  }
+}, { passive: true });
+
+document.getElementById('photo-view').addEventListener('touchend', e => {
+  if (e.touches.length < 2) photoLastPinchDist = null;
+});
+
+// PCマウスホイールで通常写真ズーム
+document.getElementById('photo-view').addEventListener('wheel', e => {
+  photoTargetScale = Math.max(1, Math.min(5, photoTargetScale - e.deltaY * 0.005));
+  document.getElementById('photo-img').style.transform = `scale(${photoTargetScale})`;
 }, { passive: true });
 
 // ジャイロ
@@ -535,6 +608,9 @@ function loadRoom(roomId, animate = true, shotIndex = 0) {
   document.getElementById('loading').classList.remove('hidden');
   currentRoomId = roomId;
   currentShotIndex = shotIndex;
+  targetFov = 75;
+  photoTargetScale = 1;
+  document.getElementById('photo-img').style.transform = 'scale(1)';
 
   // ルームリストUI更新
   document.querySelectorAll('.room-thumb').forEach(el => {
@@ -681,6 +757,9 @@ function animate() {
   lon += (targetLon - lon) * 0.08;
   lat += (targetLat - lat) * 0.08;
   lat = Math.max(-85, Math.min(85, lat));
+  fov += (targetFov - fov) * 0.1;
+  camera.fov = fov;
+  camera.updateProjectionMatrix();
 
   const phi   = THREE.MathUtils.degToRad(90 - lat);
   const theta = THREE.MathUtils.degToRad(lon);
