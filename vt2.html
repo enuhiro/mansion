@@ -473,7 +473,7 @@
     </select>
   </div>
   <div class="panel-section" id="global-links-section">
-    <h3>共通リンク（内見モード用・最大3本）</h3>
+    <h3>共通リンク（最大3本）</h3>
     <div id="global-link-inputs"></div>
     <button class="add-room-btn" id="add-link-btn">＋ リンクを追加</button>
   </div>
@@ -948,8 +948,7 @@ document.getElementById('mode-select').addEventListener('change', e => {
 });
 
 function updateModeSectionVisibility() {
-  document.getElementById('global-links-section').style.display =
-    tourConfig.mode === 'naiken' ? '' : 'none';
+  // 両モードで共通リンクを表示するため何もしない
 }
 
 function buildGlobalLinkInputs() {
@@ -1008,19 +1007,18 @@ function buildEditInputs() {
       </select>
       <small style="margin-top:4px;display:block;">ショット（複数追加で切り替えボタンが出ます）</small>
       <div class="shots-wrap" data-ri="${i}">${shotsHtml}</div>
-      <button class="add-shot-btn" data-ri="${i}" style="margin-top:5px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ ショット追加</button>
-      ${tourConfig.mode === 'photoex' ? `
-      <small style="margin-top:8px;display:block;color:#666;">部屋リンク（最大5本）</small>
-      <div class="room-links-wrap" data-ri="${i}">
-        ${(room.links||[]).map((lk,k) => `
-        <div style="display:flex;gap:6px;margin-top:4px;align-items:center;">
-          <input type="text" placeholder="ラベル" value="${lk.label}" data-ri="${i}" data-lk="${k}" data-field="label" style="width:80px;">
-          <input type="text" placeholder="URL" value="${lk.url}" data-ri="${i}" data-lk="${k}" data-field="url" style="flex:1;">
-          <button class="remove-btn remove-roomlink-btn" data-ri="${i}" data-lk="${k}">×</button>
-        </div>`).join('')}
-      </div>
-      <button class="add-roomlink-btn" data-ri="${i}" style="margin-top:4px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ リンク追加</button>
-      ` : ''}`;
+      <button class="add-shot-btn" data-ri="${i}" style="margin-top:5px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ ショット追加</button>`;
+    if (tourConfig.mode === 'photoex') {
+      const linksHtml = (room.links||[]).map((lk,k) =>
+        '<div style="display:flex;gap:6px;margin-top:4px;align-items:center;">' +
+        '<input type="text" placeholder="ラベル" value="' + lk.label + '" data-ri="' + i + '" data-lk="' + k + '" data-field="label" style="width:80px;">' +
+        '<input type="text" placeholder="URL" value="' + lk.url + '" data-ri="' + i + '" data-lk="' + k + '" data-field="url" style="flex:1;">' +
+        '<button class="remove-btn remove-roomlink-btn" data-ri="' + i + '" data-lk="' + k + '">×</button></div>'
+      ).join('');
+      div.innerHTML += '<small style="margin-top:8px;display:block;color:#666;">部屋リンク（最大5本）</small>' +
+        '<div class="room-links-wrap" data-ri="' + i + '">' + linksHtml + '</div>' +
+        '<button class="add-roomlink-btn" data-ri="' + i + '" style="margin-top:4px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ リンク追加</button>';
+    }
     roomInputs.appendChild(div);
   });
 
@@ -1072,6 +1070,7 @@ function buildEditInputs() {
       rooms[ri].links[lk][e.target.dataset.field] = e.target.value;
     });
   });
+  roomInputs.querySelectorAll('.add-shot-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       const ri = parseInt(e.target.dataset.ri);
       rooms[ri].shots.push({ label: '', imageUrl: '' });
@@ -1111,7 +1110,6 @@ function closeFloorplan() {
 function renderGlobalLinks() {
   const container = document.getElementById('global-links');
   container.innerHTML = '';
-  if (tourConfig.mode !== 'naiken') return;
   tourConfig.globalLinks.forEach(link => {
     if (!link.url) return;
     const a = document.createElement('a');
