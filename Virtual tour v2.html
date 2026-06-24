@@ -220,9 +220,9 @@
   /* ── ジャイロボタン ── */
   #gyro-btn {
     position: fixed;
-    bottom: 90px;
-    left: 16px;
-    z-index: 100;
+    top: 14px;
+    left: 80px;
+    z-index: 110;
     background: rgba(10,10,15,0.75);
     border: 1px solid rgba(200,169,126,0.4);
     border-radius: 20px;
@@ -390,6 +390,7 @@
     transform: translateX(100%);
     transition: transform 0.3s ease;
     overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 80px);
   }
   #edit-panel.open { transform: translateX(0); }
 
