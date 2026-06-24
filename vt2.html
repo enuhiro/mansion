@@ -217,32 +217,7 @@
     backdrop-filter: blur(4px);
   }
 
-  /* ── ジャイロボタン ── */
-  #gyro-btn {
-    position: fixed;
-    top: 14px;
-    left: 80px;
-    z-index: 110;
-    background: rgba(10,10,15,0.75);
-    border: 1px solid rgba(200,169,126,0.4);
-    border-radius: 20px;
-    color: #c8a97e;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    padding: 6px 14px;
-    cursor: pointer;
-    backdrop-filter: blur(4px);
-    transition: background 0.2s, border-color 0.2s;
-    display: block;
-  }
-  #gyro-btn.active {
-    background: rgba(200,169,126,0.25);
-    border-color: #c8a97e;
-    color: #fff;
-  }
-
-
-  #floorplan {
+  /* ── 間取り図 ── */  #floorplan {
     position: fixed;
     bottom: 90px;
     right: 16px;
@@ -474,8 +449,6 @@
 
 <button id="edit-btn">⚙ 設定</button>
 
-<button id="gyro-btn" onclick="toggleGyro()">🔄 ジャイロ</button>
-
 <div id="floorplan" onclick="toggleFloorplan()">
   <img src="https://image.homes.jp/smallimg/image.php?file=http%3A%2F%2Fimg.homes.jp%2F3550356%2Fsale%2F616%2F1%2F1%2Fn7z2.jpg&width=600&height=600" alt="間取り図">
   <div id="floorplan-label">間取り図 タップで拡大</div>
@@ -656,65 +629,6 @@ window.addEventListener('touchmove', e => {
     lastPinchDist = dist;
   }
 }, { passive: true });
-
-// ── ジャイロ ──
-let gyroEnabled = false;
-let gyroAlpha = null, gyroBeta = null, gyroGamma = null;
-let gyroBaseLon = 0, gyroBaseLat = 0;
-let gyroBaseAlpha = null;
-
-function toggleGyro() {
-  if (gyroEnabled) {
-    gyroEnabled = false;
-    document.getElementById('gyro-btn').classList.remove('active');
-    document.getElementById('gyro-btn').textContent = '🔄 ジャイロ';
-    return;
-  }
-  // iOS は許可リクエストが必要
-  if (typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission()
-      .then(state => {
-        if (state === 'granted') enableGyro();
-        else alert('ジャイロの許可が必要です');
-      })
-      .catch(() => alert('ジャイロの許可が必要です'));
-  } else {
-    enableGyro();
-  }
-}
-
-function enableGyro() {
-  gyroEnabled = true;
-  gyroBaseAlpha = null; // リセット
-  gyroBaseLon = targetLon;
-  gyroBaseLat = targetLat;
-  document.getElementById('gyro-btn').classList.add('active');
-  document.getElementById('gyro-btn').textContent = '🔄 ジャイロON';
-}
-
-window.addEventListener('deviceorientation', e => {
-  if (!gyroEnabled) return;
-  if (e.alpha === null) return;
-
-  if (gyroBaseAlpha === null) {
-    gyroBaseAlpha = e.alpha;
-  }
-
-  // alpha: 水平回転（lon）, beta: 前後傾き（lat）
-  let deltaAlpha = e.alpha - gyroBaseAlpha;
-  if (deltaAlpha > 180) deltaAlpha -= 360;
-  if (deltaAlpha < -180) deltaAlpha += 360;
-
-  const newLat = Math.max(-85, Math.min(85, gyroBaseLat - (e.beta - 45) * 0.5));
-  const newLon = gyroBaseLon - deltaAlpha;
-
-  targetLon = newLon;
-  targetLat = newLat;
-}, { passive: true });
-
-// スマホかどうかでジャイロボタン表示切り替え（確認用：常時表示）
-document.getElementById('gyro-btn').style.display = '';
 
 // ── 通常写真 パン＆ズーム ──
 let photoScale = 1, photoTargetScale = 1;
