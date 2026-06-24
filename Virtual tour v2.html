@@ -217,7 +217,31 @@
     backdrop-filter: blur(4px);
   }
 
-  /* ── 間取り図 ── */
+  /* ── ジャイロボタン ── */
+  #gyro-btn {
+    position: fixed;
+    bottom: 90px;
+    left: 16px;
+    z-index: 100;
+    background: rgba(10,10,15,0.75);
+    border: 1px solid rgba(200,169,126,0.4);
+    border-radius: 20px;
+    color: #c8a97e;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 6px 14px;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s, border-color 0.2s;
+    display: none;
+  }
+  #gyro-btn.active {
+    background: rgba(200,169,126,0.25);
+    border-color: #c8a97e;
+    color: #fff;
+  }
+
+
   #floorplan {
     position: fixed;
     bottom: 90px;
@@ -279,7 +303,44 @@
   }
 
 
-  #hint {
+  /* ── リンクボタン ── */
+  #global-links {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .link-btn {
+    display: block;
+    padding: 7px 12px;
+    background: rgba(10,10,15,0.75);
+    border: 1px solid rgba(200,169,126,0.4);
+    border-radius: 8px;
+    color: #c8a97e;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-align: center;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s;
+    cursor: pointer;
+    width: 120px;
+  }
+  .link-btn:hover { background: rgba(200,169,126,0.2); }
+
+  /* 写真展モード：部屋ごとリンク */
+  #room-links {
+    position: fixed;
+    bottom: 90px;
+    left: 16px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  #room-links .link-btn { width: auto; min-width: 100px; }
+
+
     position: fixed;
     top: 50%;
     left: 50%;
@@ -412,18 +473,46 @@
 
 <button id="edit-btn">⚙ 設定</button>
 
+<button id="gyro-btn" onclick="toggleGyro()">🔄 ジャイロ</button>
+
 <div id="floorplan" onclick="toggleFloorplan()">
   <img src="https://image.homes.jp/smallimg/image.php?file=http%3A%2F%2Fimg.homes.jp%2F3550356%2Fsale%2F616%2F1%2F1%2Fn7z2.jpg&width=600&height=600" alt="間取り図">
   <div id="floorplan-label">間取り図 タップで拡大</div>
   <button id="floorplan-close" onclick="event.stopPropagation(); closeFloorplan()">閉じる</button>
+  <div id="global-links"></div>
 </div>
+
+<div id="room-links"></div>
 
 <div id="room-list"></div>
 
 <div id="edit-panel">
   <div class="panel-header">
-    <h2>ルーム設定</h2>
+    <h2>ツアー設定</h2>
     <button id="close-panel">×</button>
+  </div>
+  <div class="panel-section">
+    <h3>基本設定</h3>
+    <div class="field" style="margin-bottom:10px;">
+      <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">タイトル（左上に表示）</label>
+      <input type="text" id="tour-title-input" placeholder="例：〇〇マンション内見" style="width:100%;background:#0f0f14;border:1px solid #2a2a36;border-radius:8px;color:#e8e4dd;font-size:14px;padding:8px 10px;outline:none;">
+    </div>
+    <div class="field">
+      <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">間取り図画像URL</label>
+      <input type="text" id="floorplan-url-input" placeholder="https://..." style="width:100%;background:#0f0f14;border:1px solid #2a2a36;border-radius:8px;color:#e8e4dd;font-size:14px;padding:8px 10px;outline:none;">
+    </div>
+  </div>
+  <div class="panel-section">
+    <h3>モード</h3>
+    <select id="mode-select" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e8e4dd;font-size:13px;padding:8px 10px;outline:none;">
+      <option value="naiken">内見モード（間取り図＋共通リンク）</option>
+      <option value="photoex">写真展モード（部屋ごとリンク）</option>
+    </select>
+  </div>
+  <div class="panel-section" id="global-links-section">
+    <h3>共通リンク（最大3本）</h3>
+    <div id="global-link-inputs"></div>
+    <button class="add-room-btn" id="add-link-btn">＋ リンクを追加</button>
   </div>
   <div class="panel-section">
     <h3>ルーム一覧</h3>
@@ -434,18 +523,28 @@
   <div class="panel-section">
     <h3>使い方</h3>
     <p style="font-size:11px;color:#666;line-height:1.7;">
-      ① 各ルームの名前と360°画像URLを入力<br>
-      ② 「適用する」でツアーに反映<br>
-      ③ ドラッグ or スワイプで視点移動<br>
-      ④ 矢印アイコンをクリックで部屋移動<br><br>
-      画像はequirectangular（正距円筒）形式のJPG/PNGを使用してください。
-      THETAで撮影した画像はそのまま使えます。
+      ① モードを選択して設定<br>
+      ② 各ルームの名前と画像URLを入力<br>
+      ③ 「適用する」でツアーに反映<br>
+      ④ ドラッグ or スワイプで視点移動
     </p>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// ────────────────────────────────────────
+// グローバル設定
+// ────────────────────────────────────────
+let tourConfig = {
+  mode: 'naiken',
+  title: 'Virtual Tour',
+  floorplanUrl: 'https://image.homes.jp/smallimg/image.php?file=http%3A%2F%2Fimg.homes.jp%2F3550356%2Fsale%2F616%2F1%2F1%2Fn7z2.jpg&width=600&height=600',
+  globalLinks: [
+    { label: 'Googleマップで見る', url: 'https://maps.google.com' },
+  ]
+};
+
 // ────────────────────────────────────────
 // デフォルトルームデータ（サンプル）
 // ────────────────────────────────────────
@@ -458,6 +557,7 @@ const SAMPLE_ROOMS = [
       { label: 'ドア開', imageUrl: 'https://enuhiro.github.io/mansion/%E7%8E%84%E9%96%A2.JPG' },
       { label: 'ドア閉', imageUrl: 'https://enuhiro.github.io/mansion/%E7%8E%84%E9%96%A2%EF%BC%88%E3%83%89%E3%82%A2%E9%96%89%E3%82%81%EF%BC%89.JPG' },
     ],
+    links: [],
     hotspots: []
   },
   {
@@ -467,6 +567,7 @@ const SAMPLE_ROOMS = [
     shots: [
       { label: '', imageUrl: 'https://enuhiro.github.io/mansion/living2.JPG' },
     ],
+    links: [],
     hotspots: []
   },
 ];
@@ -554,6 +655,67 @@ window.addEventListener('touchmove', e => {
     lastPinchDist = dist;
   }
 }, { passive: true });
+
+// ── ジャイロ ──
+let gyroEnabled = false;
+let gyroAlpha = null, gyroBeta = null, gyroGamma = null;
+let gyroBaseLon = 0, gyroBaseLat = 0;
+let gyroBaseAlpha = null;
+
+function toggleGyro() {
+  if (gyroEnabled) {
+    gyroEnabled = false;
+    document.getElementById('gyro-btn').classList.remove('active');
+    document.getElementById('gyro-btn').textContent = '🔄 ジャイロ';
+    return;
+  }
+  // iOS は許可リクエストが必要
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(state => {
+        if (state === 'granted') enableGyro();
+        else alert('ジャイロの許可が必要です');
+      })
+      .catch(() => alert('ジャイロの許可が必要です'));
+  } else {
+    enableGyro();
+  }
+}
+
+function enableGyro() {
+  gyroEnabled = true;
+  gyroBaseAlpha = null; // リセット
+  gyroBaseLon = targetLon;
+  gyroBaseLat = targetLat;
+  document.getElementById('gyro-btn').classList.add('active');
+  document.getElementById('gyro-btn').textContent = '🔄 ジャイロON';
+}
+
+window.addEventListener('deviceorientation', e => {
+  if (!gyroEnabled) return;
+  if (e.alpha === null) return;
+
+  if (gyroBaseAlpha === null) {
+    gyroBaseAlpha = e.alpha;
+  }
+
+  // alpha: 水平回転（lon）, beta: 前後傾き（lat）
+  let deltaAlpha = e.alpha - gyroBaseAlpha;
+  if (deltaAlpha > 180) deltaAlpha -= 360;
+  if (deltaAlpha < -180) deltaAlpha += 360;
+
+  const newLat = Math.max(-85, Math.min(85, gyroBaseLat - (e.beta - 45) * 0.5));
+  const newLon = gyroBaseLon - deltaAlpha;
+
+  targetLon = newLon;
+  targetLat = newLat;
+}, { passive: true });
+
+// スマホかどうかでジャイロボタン表示切り替え
+if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+  document.getElementById('gyro-btn').style.display = '';
+}
 
 // ── 通常写真 パン＆ズーム ──
 let photoScale = 1, photoTargetScale = 1;
@@ -682,6 +844,7 @@ function loadRoom(roomId, animate = true, shotIndex = 0) {
     el.classList.toggle('active', el.dataset.id === roomId);
   });
   document.getElementById('room-name').textContent = room.name;
+  renderRoomLinks(room);
 
   // ショット切り替えボタン更新
   const shotBtns = document.getElementById('shot-btns');
@@ -872,9 +1035,56 @@ const roomInputs = document.getElementById('room-inputs');
 
 editBtn.addEventListener('click', () => {
   editPanel.classList.add('open');
+  document.getElementById('mode-select').value = tourConfig.mode;
+  document.getElementById('tour-title-input').value = tourConfig.title;
+  document.getElementById('floorplan-url-input').value = tourConfig.floorplanUrl;
+  updateModeSectionVisibility();
+  buildGlobalLinkInputs();
   buildEditInputs();
 });
 closePanel.addEventListener('click', () => editPanel.classList.remove('open'));
+
+document.getElementById('mode-select').addEventListener('change', e => {
+  tourConfig.mode = e.target.value;
+  updateModeSectionVisibility();
+});
+
+function updateModeSectionVisibility() {
+  // 両モードで共通リンクを表示するため何もしない
+}
+
+function buildGlobalLinkInputs() {
+  const container = document.getElementById('global-link-inputs');
+  container.innerHTML = '';
+  tourConfig.globalLinks.forEach((link, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:8px;';
+    row.innerHTML = `
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="text" placeholder="ラベル（例：地図で見る）" value="${link.label}" data-li="${i}" data-field="label" style="width:100px;">
+        <input type="text" placeholder="URL" value="${link.url}" data-li="${i}" data-field="url" style="flex:1;">
+        <button class="remove-btn remove-link-btn" data-i="${i}">×</button>
+      </div>`;
+    container.appendChild(row);
+  });
+  container.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      tourConfig.globalLinks[e.target.dataset.li][e.target.dataset.field] = e.target.value;
+    });
+  });
+  container.querySelectorAll('.remove-link-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      tourConfig.globalLinks.splice(parseInt(e.target.dataset.i), 1);
+      buildGlobalLinkInputs();
+    });
+  });
+}
+
+document.getElementById('add-link-btn').addEventListener('click', () => {
+  if (tourConfig.globalLinks.length >= 3) return alert('リンクは最大3本です');
+  tourConfig.globalLinks.push({ label: '', url: '' });
+  buildGlobalLinkInputs();
+});
 
 function buildEditInputs() {
   roomInputs.innerHTML = '';
@@ -900,6 +1110,17 @@ function buildEditInputs() {
       <small style="margin-top:4px;display:block;">ショット（複数追加で切り替えボタンが出ます）</small>
       <div class="shots-wrap" data-ri="${i}">${shotsHtml}</div>
       <button class="add-shot-btn" data-ri="${i}" style="margin-top:5px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ ショット追加</button>`;
+    if (tourConfig.mode === 'photoex') {
+      const linksHtml = (room.links||[]).map((lk,k) =>
+        '<div style="display:flex;gap:6px;margin-top:4px;align-items:center;">' +
+        '<input type="text" placeholder="ラベル" value="' + lk.label + '" data-ri="' + i + '" data-lk="' + k + '" data-field="label" style="width:80px;">' +
+        '<input type="text" placeholder="URL" value="' + lk.url + '" data-ri="' + i + '" data-lk="' + k + '" data-field="url" style="flex:1;">' +
+        '<button class="remove-btn remove-roomlink-btn" data-ri="' + i + '" data-lk="' + k + '">×</button></div>'
+      ).join('');
+      div.innerHTML += '<small style="margin-top:8px;display:block;color:#666;">部屋リンク（最大5本）</small>' +
+        '<div class="room-links-wrap" data-ri="' + i + '">' + linksHtml + '</div>' +
+        '<button class="add-roomlink-btn" data-ri="' + i + '" style="margin-top:4px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ リンク追加</button>';
+    }
     roomInputs.appendChild(div);
   });
 
@@ -929,6 +1150,28 @@ function buildEditInputs() {
       rooms[ri].shots.splice(si, 1); buildEditInputs();
     });
   });
+  roomInputs.querySelectorAll('.add-roomlink-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const ri = parseInt(e.target.dataset.ri);
+      if ((rooms[ri].links||[]).length >= 5) return alert('リンクは最大5本です');
+      if (!rooms[ri].links) rooms[ri].links = [];
+      rooms[ri].links.push({ label: '', url: '' });
+      buildEditInputs();
+    });
+  });
+  roomInputs.querySelectorAll('.remove-roomlink-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const ri = parseInt(e.target.dataset.ri), lk = parseInt(e.target.dataset.lk);
+      rooms[ri].links.splice(lk, 1);
+      buildEditInputs();
+    });
+  });
+  roomInputs.querySelectorAll('input[data-lk]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const ri = e.target.dataset.ri, lk = e.target.dataset.lk;
+      rooms[ri].links[lk][e.target.dataset.field] = e.target.value;
+    });
+  });
   roomInputs.querySelectorAll('.add-shot-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       const ri = parseInt(e.target.dataset.ri);
@@ -945,8 +1188,13 @@ document.getElementById('add-room-btn').addEventListener('click', () => {
 
 document.getElementById('apply-btn').addEventListener('click', () => {
   // テクスチャキャッシュをクリア（URLが変わった場合）
+  tourConfig.title = document.getElementById('tour-title-input').value || 'Virtual Tour';
+  tourConfig.floorplanUrl = document.getElementById('floorplan-url-input').value;
+  document.querySelector('#header h1').textContent = tourConfig.title;
+  document.querySelector('#floorplan img').src = tourConfig.floorplanUrl;
   Object.keys(textureCache).forEach(k => delete textureCache[k]);
   buildRoomList();
+  renderGlobalLinks();
   currentRoomId = rooms[0].id;
   loadRoom(currentRoomId, false);
   editPanel.classList.remove('open');
@@ -964,8 +1212,43 @@ function closeFloorplan() {
   document.getElementById('floorplan-label').textContent = '間取り図 タップで拡大';
 }
 
+// ── リンク描画 ──
+function renderGlobalLinks() {
+  const container = document.getElementById('global-links');
+  container.innerHTML = '';
+  tourConfig.globalLinks.forEach(link => {
+    if (!link.url) return;
+    const a = document.createElement('a');
+    a.className = 'link-btn';
+    a.textContent = link.label || link.url;
+    a.href = link.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.onclick = e => e.stopPropagation();
+    container.appendChild(a);
+  });
+}
+
+function renderRoomLinks(room) {
+  const container = document.getElementById('room-links');
+  container.innerHTML = '';
+  if (tourConfig.mode !== 'photoex') return;
+  (room.links || []).forEach(link => {
+    if (!link.url) return;
+    const a = document.createElement('a');
+    a.className = 'link-btn';
+    a.textContent = link.label || link.url;
+    a.href = link.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    container.appendChild(a);
+  });
+}
+
 // ── 初期化 ──
+document.querySelector('#header h1').textContent = tourConfig.title;
 buildRoomList();
+renderGlobalLinks();
 animate();
 loadRoom(rooms[0].id, false);
 
