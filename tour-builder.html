@@ -313,12 +313,56 @@ function renderMarkerSvg() {
 function setActiveMarkerRoom(roomId) {
   activeMarkerRoomId = roomId;
   const room = state.rooms.find(r => r.id === roomId);
-  document.getElementById('marker-active-label').textContent =
-    room ? `「${room.name}」の位置をクリックして設定` : '設定する部屋を選んでください';
-  renderMarkerSvg();
-  // 間取り図エリアへスクロール
-  document.getElementById('floorplan-marker-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('modal-room-name').textContent = `「${room.name}」の位置をクリックして設定`;
+  document.getElementById('modal-fp-img').src = state.floorplanData;
+  renderModalSvg();
+  document.getElementById('marker-modal').classList.add('open');
 }
+
+function renderModalSvg() {
+  const svg = document.getElementById('modal-svg');
+  svg.innerHTML = '';
+  state.rooms.forEach(room => {
+    if (!room.marker) return;
+    const { x, y } = room.marker;
+    const isActive = room.id === activeMarkerRoomId;
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x + '%');
+    c.setAttribute('cy', y + '%');
+    c.setAttribute('r', isActive ? '2.5%' : '1.5%');
+    c.setAttribute('fill', isActive ? '#c8a97e' : 'rgba(200,169,126,0.4)');
+    c.setAttribute('stroke', '#fff');
+    c.setAttribute('stroke-width', '0.5%');
+    svg.appendChild(c);
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', x + '%');
+    t.setAttribute('y', (parseFloat(y) + 5) + '%');
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('font-size', '3%');
+    t.setAttribute('fill', '#fff');
+    t.textContent = room.name;
+    svg.appendChild(t);
+  });
+}
+
+document.getElementById('marker-canvas-wrap').addEventListener('click', e => {
+  if (!activeMarkerRoomId) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+  const y = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1);
+  const room = state.rooms.find(r => r.id === activeMarkerRoomId);
+  if (room) {
+    room.marker = { x: parseFloat(x), y: parseFloat(y) };
+    renderModalSvg();
+    renderMarkerSvg();
+    renderRooms();
+    // 少し待ってモーダルを閉じる
+    setTimeout(() => {
+      document.getElementById('marker-modal').classList.remove('open');
+      activeMarkerRoomId = null;
+    }, 600);
+  }
+});
 
 // ── 共通リンク ──
 function renderGlobalLinks() {
