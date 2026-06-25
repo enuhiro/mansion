@@ -35,9 +35,30 @@
     transition: border-color 0.2s; overflow: hidden;
   }
   .drop-zone:hover, .drop-zone.dragover { border-color: #c8a97e; }
+  .drop-zone { min-height: 120px; }
   .drop-zone p { font-size: 12px; color: #555; }
   .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
   .drop-zone img { max-width: 100%; max-height: 200px; border-radius: 8px; display: block; margin: 0 auto; }
+
+  /* ショットドロップエリアも大きく */
+  .shot-thumb { width: 80px !important; height: 64px !important; }
+
+  /* プレビューモーダル */
+  #preview-modal {
+    display: none; position: fixed; inset: 0;
+    background: #000; z-index: 300; flex-direction: column;
+  }
+  #preview-modal.open { display: flex; }
+  #preview-modal-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; background: #0f0f14; border-bottom: 1px solid #1e1e28; flex-shrink: 0;
+  }
+  #preview-modal-bar span { font-size: 12px; color: #c8a97e; letter-spacing: 0.1em; }
+  #preview-close-btn {
+    padding: 6px 16px; background: none; border: 1px solid #444;
+    border-radius: 16px; color: #aaa; font-size: 12px; cursor: pointer;
+  }
+  #preview-iframe { flex: 1; width: 100%; border: none; }
 
   /* 間取り図マーカー設定 */
   #floorplan-marker-area {
@@ -200,11 +221,29 @@
 </div>
 
 <div class="generate-bar">
-  <button class="generate-btn" onclick="generate()">ツアーHTMLを生成・ダウンロード</button>
-  <div id="size-info"></div>
+  <div style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:8px;">
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="filename" placeholder="ファイル名（例：渋谷マンション）" style="flex:1;font-size:13px;padding:8px 12px;background:#0f0f14;border:1px solid #252530;border-radius:8px;color:#e8e4dd;outline:none;">
+      <span style="align-self:center;font-size:12px;color:#555;">.html</span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="generate-btn" style="flex:1;" onclick="generate()">↓ ダウンロード</button>
+      <button class="generate-btn" style="flex:1;background:#2a2a36;color:#c8a97e;border:1px solid rgba(200,169,126,0.3);" onclick="preview()">▶ プレビュー</button>
+    </div>
+    <div id="size-info"></div>
+  </div>
 </div>
 
-<!-- マーカー設定モーダル（未使用、インライン方式に統一） -->
+<!-- プレビューモーダル -->
+<div id="preview-modal">
+  <div id="preview-modal-bar">
+    <span>▶ プレビュー</span>
+    <button id="preview-close-btn" onclick="closePreview()">✕ 閉じる</button>
+  </div>
+  <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin"></iframe>
+</div>
+
+<!-- マーカー設定モーダル -->
 <div id="marker-modal">
   <h2>マーカー位置を設定</h2>
   <p id="modal-room-name"></p>
@@ -1754,7 +1793,7 @@ function updateSizeInfo() {
 function closeMarkerModal() { document.getElementById('marker-modal').classList.remove('open'); }
 
 // ── HTML生成 ──
-function generate() {
+function buildTourHtml() {
   const title = document.getElementById('title').value || 'Virtual Tour';
   const mode  = document.getElementById('mode').value;
 
@@ -1776,27 +1815,62 @@ function generate() {
 
   let html = document.getElementById('base-html-template').textContent;
 
-  // tourConfig置き換え
   const cfgStart = html.indexOf('let tourConfig = {');
   const cfgEnd   = html.indexOf('};', cfgStart) + 2;
   html = html.slice(0, cfgStart) + 'let tourConfig = ' + configJson + ';' + html.slice(cfgEnd);
 
-  // SAMPLE_ROOMS置き換え
   const rmStart = html.indexOf('const SAMPLE_ROOMS = [');
   const rmEnd   = html.indexOf('];', rmStart) + 2;
   html = html.slice(0, rmStart) + 'const SAMPLE_ROOMS = ' + roomsJson + ';' + html.slice(rmEnd);
 
-  // titleタグ置き換え
   const tStart = html.indexOf('<title>');
   const tEnd   = html.indexOf('</title>') + 8;
   html = html.slice(0, tStart) + '<title>' + title + '</title>' + html.slice(tEnd);
 
+  return html;
+}
+
+function getFilename() {
+  const input = document.getElementById('filename').value.trim();
+  const title = document.getElementById('title').value.trim();
+  const name = input || title || 'virtual-tour';
+  return name + '.html';
+}
+
+function generate() {
+  const html = buildTourHtml();
   const blob = new Blob([html], { type: 'text/html' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = 'virtual-tour.html'; a.click();
+  a.href = url;
+  a.download = getFilename();
+  a.click();
   URL.revokeObjectURL(url);
 }
+
+function preview() {
+  const html = buildTourHtml();
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const iframe = document.getElementById('preview-iframe');
+  iframe.src = url;
+  document.getElementById('preview-modal').classList.add('open');
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+function closePreview() {
+  document.getElementById('preview-modal').classList.remove('open');
+  document.getElementById('preview-iframe').src = '';
+}
+
+// タイトル変更時にファイル名欄も自動更新
+document.getElementById('title').addEventListener('input', e => {
+  const fnInput = document.getElementById('filename');
+  if (!fnInput.dataset.manually) fnInput.value = e.target.value;
+});
+document.getElementById('filename').addEventListener('input', e => {
+  e.target.dataset.manually = '1';
+});
 </script>
 </body>
 </html>
