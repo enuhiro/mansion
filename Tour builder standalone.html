@@ -240,7 +240,7 @@
     <span>▶ プレビュー</span>
     <button id="preview-close-btn" onclick="closePreview()">✕ 閉じる</button>
   </div>
-  <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin"></iframe>
+  <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
 </div>
 
 <!-- マーカー設定モーダル -->
@@ -1850,17 +1850,14 @@ function generate() {
 
 function preview() {
   const html = buildTourHtml();
-  const blob = new Blob([html], { type: 'text/html' });
-  const url  = URL.createObjectURL(blob);
   const iframe = document.getElementById('preview-iframe');
-  iframe.src = url;
+  iframe.srcdoc = html;
   document.getElementById('preview-modal').classList.add('open');
-  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function closePreview() {
   document.getElementById('preview-modal').classList.remove('open');
-  document.getElementById('preview-iframe').src = '';
+  document.getElementById('preview-iframe').srcdoc = '';
 }
 
 // タイトル変更時にファイル名欄も自動更新
