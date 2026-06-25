@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ツアービルダー</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f0f14; color: #e8e4dd; font-family: 'Helvetica Neue', Arial, sans-serif; min-height: 100vh; padding-bottom: 120px; }
+
+  .top-bar { background: #0f0f14; border-bottom: 1px solid #1e1e28; padding: 16px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 50; }
+  .top-bar .dot { width: 7px; height: 7px; border-radius: 50%; background: #c8a97e; flex-shrink: 0; }
+  .top-bar h1 { font-size: 13px; font-weight: 400; letter-spacing: 0.18em; text-transform: uppercase; color: #c8a97e; }
+
+  .container { max-width: 720px; margin: 0 auto; padding: 24px 20px; }
+
+  .section { background: #1a1a22; border: 1px solid #252530; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .section-title { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: #666; margin-bottom: 14px; }
+
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { font-size: 11px; color: #888; display: block; margin-bottom: 5px; }
+
+  input[type="text"], select {
+    width: 100%; background: #0f0f14; border: 1px solid #252530; border-radius: 8px;
+    color: #e8e4dd; font-size: 14px; padding: 9px 12px; outline: none;
+    transition: border-color 0.2s; font-family: inherit;
+  }
+  input[type="text"]:focus, select:focus { border-color: rgba(200,169,126,0.5); }
+
+  /* 間取り図アップロード */
+  .drop-zone {
+    border: 1.5px dashed #333; border-radius: 10px; padding: 24px;
+    text-align: center; cursor: pointer; position: relative;
+    transition: border-color 0.2s; overflow: hidden;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: #c8a97e; }
+  .drop-zone p { font-size: 12px; color: #555; }
+  .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-zone img { max-width: 100%; max-height: 200px; border-radius: 8px; display: block; margin: 0 auto; }
+
+  /* 間取り図マーカー設定 */
+  #floorplan-marker-area {
+    display: none;
+    margin-top: 12px;
+    border: 1px solid #252530;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    cursor: crosshair;
+  }
+  #floorplan-marker-area img { width: 100%; display: block; user-select: none; pointer-events: none; }
+  #floorplan-marker-area svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .marker-hint { font-size: 11px; color: #c8a97e; text-align: center; padding: 6px 0; }
+  .marker-active-room { font-size: 11px; color: #888; text-align: center; padding: 4px 0; }
+
+  /* 部屋カード */
+  .room-card { background: #0f0f14; border: 1px solid #252530; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+  .room-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .room-num { font-size: 10px; letter-spacing: 0.12em; color: #c8a97e; flex-shrink: 0; }
+  .del-btn { background: none; border: 1px solid #3a2a2a; border-radius: 6px; color: #844; width: 28px; height: 28px; cursor: pointer; font-size: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .del-btn:hover { background: #2a1515; }
+
+  .sub-label { font-size: 10px; color: #555; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 7px; }
+
+  /* ショット */
+  .shot-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: stretch; }
+  .shot-thumb {
+    width: 68px; height: 50px; border: 1.5px dashed #333; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; position: relative; overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .shot-thumb:hover, .shot-thumb.dragover { border-color: #c8a97e; }
+  .shot-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+  .shot-thumb span { font-size: 9px; color: #555; text-align: center; padding: 2px; pointer-events: none; }
+  .shot-thumb input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .shot-inputs { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .shot-inputs input { font-size: 12px; padding: 6px 10px; }
+  .icon-btn { background: none; border: none; color: #555; font-size: 14px; cursor: pointer; padding: 4px; flex-shrink: 0; align-self: center; }
+  .icon-btn:hover { color: #e06060; }
+
+  /* マーカー設定ボタン */
+  .marker-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: none; border: 1px solid #333; border-radius: 6px;
+    color: #888; font-size: 11px; padding: 5px 10px; cursor: pointer;
+    margin-top: 6px; transition: border-color 0.2s, color 0.2s;
+  }
+  .marker-btn:hover { border-color: #c8a97e; color: #c8a97e; }
+  .marker-btn.set { border-color: #c8a97e44; color: #c8a97e; background: rgba(200,169,126,0.08); }
+  .marker-dot-preview { width: 8px; height: 8px; border-radius: 50%; background: #c8a97e; flex-shrink: 0; }
+
+  /* リンク */
+  .link-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .link-row input { font-size: 12px; padding: 7px 10px; }
+  .link-label-input { width: 100px !important; flex-shrink: 0; }
+
+  /* add buttons */
+  .add-btn {
+    width: 100%; padding: 8px; background: none;
+    border: 1px dashed #252530; border-radius: 8px;
+    color: #555; font-size: 12px; cursor: pointer; margin-top: 4px;
+  }
+  .add-btn:hover { border-color: #444; color: #888; }
+
+  /* 生成バー */
+  .generate-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 14px 24px; background: rgba(15,15,20,0.96);
+    border-top: 1px solid #1e1e28; backdrop-filter: blur(8px); z-index: 50;
+  }
+  .generate-btn {
+    width: 100%; max-width: 720px; margin: 0 auto; display: block;
+    padding: 14px; background: #c8a97e; border: none; border-radius: 10px;
+    color: #0f0f14; font-size: 15px; font-weight: 700; letter-spacing: 0.05em;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .generate-btn:hover { background: #d4b88f; }
+
+  #size-info { font-size: 11px; text-align: center; margin-top: 7px; max-width: 720px; margin-left: auto; margin-right: auto; color: #666; }
+
+  /* モーダル */
+  #marker-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    z-index: 200; align-items: center; justify-content: center; flex-direction: column;
+    gap: 14px; padding: 20px;
+  }
+  #marker-modal.open { display: flex; }
+  #marker-modal h2 { font-size: 13px; color: #c8a97e; letter-spacing: 0.12em; }
+  #marker-modal p { font-size: 11px; color: #888; text-align: center; }
+  #marker-canvas-wrap {
+    position: relative; cursor: crosshair; border-radius: 10px; overflow: hidden;
+    max-width: 90vw; max-height: 65vh;
+  }
+  #marker-canvas-wrap img { display: block; max-width: 90vw; max-height: 65vh; border-radius: 10px; }
+  #marker-canvas-wrap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .modal-cancel-btn {
+    padding: 10px 28px; background: none; border: 1px solid #444;
+    border-radius: 20px; color: #888; font-size: 13px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="dot"></div>
+  <h1>Tour Builder</h1>
+</div>
+
+<div class="container">
+
+  <!-- 基本設定 -->
+  <div class="section">
+    <div class="section-title">基本設定</div>
+    <div class="field">
+      <label>タイトル</label>
+      <input type="text" id="title" placeholder="例：〇〇マンション内見" value="Virtual Tour">
+    </div>
+    <div class="field">
+      <label>モード</label>
+      <select id="mode" onchange="onModeChange()">
+        <option value="naiken">内見モード</option>
+        <option value="photoex">写真展モード</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 間取り図 -->
+  <div class="section">
+    <div class="section-title">間取り図</div>
+    <div class="drop-zone" id="floorplan-drop" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDropFloorplan(event)">
+      <p>ドラッグ&ドロップ またはタップで画像を選択</p>
+      <input type="file" accept="image/*" onchange="floorplanFileChange(event)">
+    </div>
+    <div id="floorplan-marker-area">
+      <div class="marker-hint">↓ 間取り図クリックで部屋の位置を設定</div>
+      <div class="marker-active-room" id="marker-active-label">設定する部屋を選んでください</div>
+      <div style="position:relative; cursor:crosshair;" id="marker-click-area" onclick="onFloorplanClick(event)">
+        <img id="floorplan-preview-img" src="" alt="間取り図">
+        <svg id="marker-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- 共通リンク -->
+  <div class="section">
+    <div class="section-title">共通リンク（最大3本）</div>
+    <div id="global-links-list"></div>
+    <button class="add-btn" onclick="addGlobalLink()">＋ リンクを追加</button>
+  </div>
+
+  <!-- 部屋 -->
+  <div class="section">
+    <div class="section-title">部屋一覧</div>
+    <div id="rooms-list"></div>
+    <button class="add-btn" onclick="addRoom()" style="margin-top:8px;">＋ 部屋を追加</button>
+  </div>
+
+</div>
+
+<div class="generate-bar">
+  <button class="generate-btn" onclick="generate()">ツアーHTMLを生成・ダウンロード</button>
+  <div id="size-info"></div>
+</div>
+
+<!-- マーカー設定モーダル（未使用、インライン方式に統一） -->
+<div id="marker-modal">
+  <h2>マーカー位置を設定</h2>
+  <p id="modal-room-name"></p>
+  <div id="marker-canvas-wrap">
+    <img id="modal-fp-img" src="" alt="">
+    <svg id="modal-svg"></svg>
+  </div>
+  <button class="modal-cancel-btn" onclick="closeMarkerModal()">キャンセル</button>
+</div>
+
+<script type="text/plain" id="base-html-template">
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>バーチャルツアー</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0f;
+    color: #e8e4dd;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  #tour-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    cursor: grab;
+  }
+  #tour-canvas:active { cursor: grabbing; }
+
+  /* ── ヘッダー ── */
+  #header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 14px 20px 14px 120px;
+    background: linear-gradient(to bottom, rgba(10,10,15,0.85) 0%, transparent 100%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 100;
+    pointer-events: none;
+  }
+  #header .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #c8a97e;
+  }
+  #header h1 {
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #c8a97e;
+  }
+  #room-name-area {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: all;
+  }
+  #room-name {
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+  }
+  #shot-btns {
+    display: flex;
+    gap: 5px;
+  }
+  .shot-btn {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 12px;
+    border: 1px solid rgba(200,169,126,0.5);
+    background: rgba(10,10,15,0.7);
+    color: #c8a97e;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .shot-btn:hover { background: rgba(200,169,126,0.25); }
+  .shot-btn.active { background: rgba(200,169,126,0.35); border-color: #c8a97e; }
+
+  /* ── ローディング ── */
+  #loading {
+    position: fixed;
+    inset: 0;
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    gap: 20px;
+    transition: opacity 0.6s;
+  }
+  #loading.hidden { opacity: 0; pointer-events: none; }
+  .loader-ring {
+    width: 48px; height: 48px;
+    border: 2px solid rgba(200,169,126,0.2);
+    border-top-color: #c8a97e;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading p { font-size: 12px; letter-spacing: 0.2em; color: #888; text-transform: uppercase; }
+
+  /* ── ルームリスト（下部） ── */
+  #room-list {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    padding: 0 20px 20px;
+    background: linear-gradient(to top, rgba(10,10,15,0.9) 0%, transparent 100%);
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    z-index: 100;
+    -webkit-overflow-scrolling: touch;
+  }
+  #room-list::-webkit-scrollbar { display: none; }
+
+  .room-thumb {
+    flex: 0 0 auto;
+    width: 90px;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.25s, transform 0.25s;
+  }
+  .room-thumb:hover { opacity: 0.9; transform: translateY(-3px); }
+  .room-thumb.active { opacity: 1; }
+  .room-thumb.active .thumb-img-wrap { border-color: #c8a97e; }
+
+  .thumb-img-wrap {
+    width: 90px; height: 55px;
+    border-radius: 6px;
+    border: 1.5px solid transparent;
+    overflow: hidden;
+    background: #1a1a22;
+    transition: border-color 0.25s;
+  }
+  .thumb-img-wrap img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .room-thumb p {
+    margin-top: 5px;
+    font-size: 10px;
+    text-align: center;
+    letter-spacing: 0.08em;
+    color: #aaa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .room-thumb.active p { color: #c8a97e; }
+
+  /* ── 通常写真表示 ── */
+  #photo-view {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: #0a0a0f;
+    align-items: center;
+    justify-content: center;
+  }
+  #photo-view.active { display: flex; }
+  #photo-view img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  /* ── ホットスポット ── */
+  .hotspot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 50;
+    pointer-events: all;
+    animation: float 2.5s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+    50% { transform: translate(-50%, -50%) translateY(-5px); }
+  }
+  .hotspot-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .hotspot-arrow {
+    width: 44px; height: 44px;
+    background: rgba(200,169,126,0.15);
+    border: 1.5px solid rgba(200,169,126,0.7);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.2s;
+    backdrop-filter: blur(4px);
+  }
+  .hotspot:hover .hotspot-arrow {
+    background: rgba(200,169,126,0.4);
+    transform: scale(1.12);
+  }
+  .hotspot-arrow svg { width: 20px; height: 20px; fill: #c8a97e; }
+  .hotspot-label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #c8a97e;
+    background: rgba(10,10,15,0.7);
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+  }
+
+  /* ── 間取り図 ── */
+  #floorplan {
+    position: fixed;
+    bottom: 90px;
+    right: 16px;
+    z-index: 100;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  #floorplan-inner {
+    position: relative;
+    width: 120px;
+  }
+  #floorplan img {
+    display: block;
+    width: 120px;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(200,169,126,0.4);
+    opacity: 0.75;
+    transition: all 0.3s ease;
+  }
+  #floorplan.expanded {
+    position: fixed;
+    inset: 0;
+    bottom: auto;
+    right: auto;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 150;
+    border-radius: 0;
+  }
+  #floorplan.expanded #floorplan-inner {
+    width: auto;
+    max-width: 95vw;
+  }
+  #floorplan.expanded img {
+    width: auto;
+    max-width: 95vw;
+    max-height: 85vh;
+    border-radius: 12px;
+    opacity: 1;
+  }
+
+  /* パルスマーカー */
+  .fp-marker-pulse {
+    animation: fp-pulse 1.5s ease-out infinite;
+  }
+  .fp-marker-dot {
+    animation: fp-dot-pulse 1.5s ease-out infinite;
+  }
+  @keyframes fp-pulse {
+    0%   { r: 3; opacity: 0.7; }
+    100% { r: 8; opacity: 0; }
+  }
+  @keyframes fp-dot-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.6; }
+  }
+  #floorplan-close {
+    display: none;
+    margin-top: 16px;
+    padding: 8px 28px;
+    background: rgba(200,169,126,0.2);
+    border: 1px solid rgba(200,169,126,0.6);
+    border-radius: 20px;
+    color: #c8a97e;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  #floorplan.expanded #floorplan-close { display: block; }
+  #floorplan-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: #888;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+
+  /* ── リンクボタン ── */
+  #global-links {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .link-btn {
+    display: block;
+    padding: 7px 12px;
+    background: rgba(10,10,15,0.75);
+    border: 1px solid rgba(200,169,126,0.4);
+    border-radius: 8px;
+    color: #c8a97e;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-align: center;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s;
+    cursor: pointer;
+    width: 120px;
+  }
+  .link-btn:hover { background: rgba(200,169,126,0.2); }
+
+  /* 写真展モード：部屋ごとリンク */
+  #room-links {
+    position: fixed;
+    bottom: 90px;
+    left: 16px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  #room-links .link-btn { width: auto; min-width: 100px; }
+
+
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 80;
+    animation: fadeHint 4s ease forwards;
+  }
+  @keyframes fadeHint {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── 設定パネル（編集モード）── */
+  #edit-btn {
+    position: fixed;
+    top: 14px; left: 20px;
+    z-index: 110;
+    background: rgba(200,169,126,0.15);
+    border: 1px solid rgba(200,169,126,0.4);
+    color: #c8a97e;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #edit-btn:hover { background: rgba(200,169,126,0.3); }
+
+  #edit-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 340px;
+    height: 100vh;
+    background: rgba(14,14,20,0.97);
+    border-left: 1px solid rgba(200,169,126,0.2);
+    z-index: 120;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 80px);
+  }
+  #edit-panel.open { transform: translateX(0); }
+
+  .panel-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-header h2 { font-size: 13px; font-weight: 400; letter-spacing: 0.15em; color: #c8a97e; text-transform: uppercase; }
+  #close-panel { background: none; border: none; color: #888; font-size: 20px; cursor: pointer; line-height: 1; }
+
+  .panel-section {
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .panel-section h3 { font-size: 10px; letter-spacing: 0.2em; color: #666; text-transform: uppercase; margin-bottom: 12px; }
+
+  .room-entry { margin-bottom: 14px; }
+  .room-entry label { font-size: 11px; color: #aaa; display: block; margin-bottom: 4px; }
+  .room-entry input[type="text"] {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: #e8e4dd;
+    font-size: 12px;
+    padding: 7px 10px;
+    outline: none;
+  }
+  .room-entry input:focus { border-color: rgba(200,169,126,0.5); }
+  .room-entry small { font-size: 10px; color: #555; margin-top: 3px; display: block; }
+
+  .add-room-btn, .apply-btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    margin-top: 8px;
+  }
+  .add-room-btn { background: rgba(255,255,255,0.06); color: #aaa; }
+  .add-room-btn:hover { background: rgba(255,255,255,0.1); }
+  .apply-btn { background: #c8a97e; color: #0a0a0f; font-weight: 600; }
+  .apply-btn:hover { background: #d4b88f; }
+
+  .remove-btn {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 16px;
+    cursor: pointer;
+    float: right;
+    line-height: 1;
+    margin-top: -2px;
+  }
+  .remove-btn:hover { color: #e06060; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loader-ring"></div>
+  <p>Loading tour</p>
+</div>
+
+<canvas id="tour-canvas"></canvas>
+<div id="photo-view"><img id="photo-img" src="" alt=""></div>
+
+<div id="header">
+  <div class="dot"></div>
+  <h1>Virtual Tour</h1>
+  <div id="room-name-area">
+    <span id="room-name">—</span>
+    <div id="shot-btns"></div>
+  </div>
+</div>
+
+<button id="edit-btn">⚙ 設定</button>
+
+<div id="floorplan" onclick="toggleFloorplan()">
+  <div id="floorplan-inner">
+    <img src="https://image.homes.jp/smallimg/image.php?file=http%3A%2F%2Fimg.homes.jp%2F3550356%2Fsale%2F616%2F1%2F1%2Fn7z2.jpg&width=600&height=600" alt="間取り図" id="floorplan-img">
+    <svg id="floorplan-svg" viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></svg>
+  </div>
+  <div id="floorplan-label">間取り図 タップで拡大</div>
+  <button id="floorplan-close" onclick="event.stopPropagation(); closeFloorplan()">閉じる</button>
+  <div id="global-links"></div>
+</div>
+
+<div id="room-links"></div>
+
+<div id="room-list"></div>
+
+<div id="edit-panel">
+  <div class="panel-header">
+    <h2>ツアー設定</h2>
+    <button id="close-panel">×</button>
+  </div>
+  <div class="panel-section">
+    <h3>基本設定</h3>
+    <div class="field" style="margin-bottom:10px;">
+      <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">タイトル（左上に表示）</label>
+      <input type="text" id="tour-title-input" placeholder="例：〇〇マンション内見" style="width:100%;background:#0f0f14;border:1px solid #2a2a36;border-radius:8px;color:#e8e4dd;font-size:14px;padding:8px 10px;outline:none;">
+    </div>
+    <div class="field">
+      <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">間取り図画像URL</label>
+      <input type="text" id="floorplan-url-input" placeholder="https://..." style="width:100%;background:#0f0f14;border:1px solid #2a2a36;border-radius:8px;color:#e8e4dd;font-size:14px;padding:8px 10px;outline:none;">
+    </div>
+  </div>
+  <div class="panel-section">
+    <h3>モード</h3>
+    <select id="mode-select" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e8e4dd;font-size:13px;padding:8px 10px;outline:none;">
+      <option value="naiken">内見モード（間取り図＋共通リンク）</option>
+      <option value="photoex">写真展モード（部屋ごとリンク）</option>
+    </select>
+  </div>
+  <div class="panel-section" id="global-links-section">
+    <h3>共通リンク（最大3本）</h3>
+    <div id="global-link-inputs"></div>
+    <button class="add-room-btn" id="add-link-btn">＋ リンクを追加</button>
+  </div>
+  <div class="panel-section">
+    <h3>ルーム一覧</h3>
+    <div id="room-inputs"></div>
+    <button class="add-room-btn" id="add-room-btn">＋ ルームを追加</button>
+    <button class="apply-btn" id="apply-btn">適用する</button>
+  </div>
+  <div class="panel-section">
+    <h3>使い方</h3>
+    <p style="font-size:11px;color:#666;line-height:1.7;">
+      ① モードを選択して設定<br>
+      ② 各ルームの名前と画像URLを入力<br>
+      ③ 「適用する」でツアーに反映<br>
+      ④ ドラッグ or スワイプで視点移動
+    </p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ────────────────────────────────────────
+// グローバル設定
+// ────────────────────────────────────────
+let tourConfig = {
+  mode: 'naiken',
+  title: 'Virtual Tour',
+  floorplanUrl: 'https://image.homes.jp/smallimg/image.php?file=http%3A%2F%2Fimg.homes.jp%2F3550356%2Fsale%2F616%2F1%2F1%2Fn7z2.jpg&width=600&height=600',
+  globalLinks: [
+    { label: 'Googleマップで見る', url: 'https://maps.google.com' },
+  ]
+};
+
+// ────────────────────────────────────────
+// デフォルトルームデータ（サンプル）
+// ────────────────────────────────────────
+const SAMPLE_ROOMS = [
+  {
+    id: 'genkan',
+    name: '玄関',
+    type: '360',
+    shots: [
+      { label: 'ドア開', imageUrl: 'https://enuhiro.github.io/mansion/%E7%8E%84%E9%96%A2.JPG' },
+      { label: 'ドア閉', imageUrl: 'https://enuhiro.github.io/mansion/%E7%8E%84%E9%96%A2%EF%BC%88%E3%83%89%E3%82%A2%E9%96%89%E3%82%81%EF%BC%89.JPG' },
+    ],
+    marker: { x: 20, y: 80 }, // 間取り図上の位置（%）
+    links: [],
+    hotspots: []
+  },
+  {
+    id: 'living',
+    name: 'リビング',
+    type: '360',
+    shots: [
+      { label: '', imageUrl: 'https://enuhiro.github.io/mansion/living2.JPG' },
+    ],
+    marker: { x: 60, y: 50 },
+    links: [],
+    hotspots: []
+  },
+];
+
+// ────────────────────────────────────────
+// Three.js 360°ビューアー
+// ────────────────────────────────────────
+let rooms = JSON.parse(JSON.stringify(SAMPLE_ROOMS));
+let currentRoomId = rooms[0].id;
+let currentShotIndex = 0;
+
+const canvas = document.getElementById('tour-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 0.001);
+
+// スフィア（球体内面に画像を貼る）
+const geometry = new THREE.SphereGeometry(500, 60, 40);
+geometry.scale(-1, 1, 1); // 内側に反転
+const textureLoader = new THREE.TextureLoader();
+let sphereMesh = null;
+
+// ── ドラッグ・タッチ操作 ──
+let isDragging = false;
+let prevX = 0, prevY = 0;
+let lon = 0, lat = 0;
+let targetLon = 0, targetLat = 0;
+let fov = 75, targetFov = 75; // 360°視野角
+
+canvas.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+window.addEventListener('mouseup', () => isDragging = false);
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  targetLon -= (e.clientX - prevX) * 0.2;
+  targetLat += (e.clientY - prevY) * 0.1;
+  prevX = e.clientX; prevY = e.clientY;
+});
+
+// PCマウスホイールで360°ズーム
+canvas.addEventListener('wheel', e => {
+  targetFov = Math.max(30, Math.min(110, targetFov + e.deltaY * 0.05));
+}, { passive: true });
+
+// タッチ操作（1本指:視点移動 / 2本指:ピンチズーム）
+let lastPinchDist = null;
+
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    isDragging = true;
+    prevX = e.touches[0].clientX;
+    prevY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    isDragging = false;
+    lastPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, { passive: true });
+
+window.addEventListener('touchend', e => {
+  if (e.touches.length < 2) lastPinchDist = null;
+  if (e.touches.length === 0) isDragging = false;
+});
+
+window.addEventListener('touchmove', e => {
+  if (e.touches.length === 1 && isDragging) {
+    targetLon -= (e.touches[0].clientX - prevX) * 0.3;
+    targetLat += (e.touches[0].clientY - prevY) * 0.15;
+    prevX = e.touches[0].clientX;
+    prevY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    if (lastPinchDist !== null) {
+      const delta = lastPinchDist - dist;
+      targetFov = Math.max(30, Math.min(110, targetFov + delta * 0.15));
+    }
+    lastPinchDist = dist;
+  }
+}, { passive: true });
+
+// ── 通常写真 パン＆ズーム ──
+let photoScale = 1, photoTargetScale = 1;
+let photoX = 0, photoY = 0;
+let photoLastPinchDist = null;
+let photoIsDragging = false;
+let photoPrevX = 0, photoPrevY = 0;
+
+const photoView = document.getElementById('photo-view');
+const photoImg  = document.getElementById('photo-img');
+
+function applyPhotoTransform() {
+  photoImg.style.transform = `translate(${photoX}px, ${photoY}px) scale(${photoScale})`;
+  photoImg.style.transformOrigin = 'center center';
+}
+
+function clampPhotoPos() {
+  // スケール1のときは中央固定
+  if (photoScale <= 1) { photoX = 0; photoY = 0; }
+}
+
+// ドラッグで移動（拡大時のみ）
+photoView.addEventListener('mousedown', e => {
+  if (photoScale <= 1) return;
+  photoIsDragging = true;
+  photoPrevX = e.clientX; photoPrevY = e.clientY;
+  photoView.style.cursor = 'grabbing';
+});
+window.addEventListener('mouseup', () => { photoIsDragging = false; photoView.style.cursor = ''; });
+window.addEventListener('mousemove', e => {
+  if (!photoIsDragging) return;
+  photoX += e.clientX - photoPrevX;
+  photoY += e.clientY - photoPrevY;
+  photoPrevX = e.clientX; photoPrevY = e.clientY;
+  applyPhotoTransform();
+});
+
+// PCホイールズーム（マウス位置基準）
+photoView.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = photoView.getBoundingClientRect();
+  const mx = e.clientX - rect.left - rect.width / 2;
+  const my = e.clientY - rect.top  - rect.height / 2;
+  const prevScale = photoScale;
+  photoScale = Math.max(1, Math.min(8, photoScale * (e.deltaY < 0 ? 1.1 : 0.9)));
+  const ratio = photoScale / prevScale;
+  photoX = mx - ratio * (mx - photoX);
+  photoY = my - ratio * (my - photoY);
+  clampPhotoPos();
+  applyPhotoTransform();
+}, { passive: false });
+
+// タッチ：1本指ドラッグ（拡大時）/ 2本指ピンチズーム
+photoView.addEventListener('touchstart', e => {
+  if (e.touches.length === 1 && photoScale > 1) {
+    photoIsDragging = true;
+    photoPrevX = e.touches[0].clientX;
+    photoPrevY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    photoIsDragging = false;
+    photoLastPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, { passive: true });
+
+photoView.addEventListener('touchmove', e => {
+  if (e.touches.length === 1 && photoIsDragging) {
+    photoX += e.touches[0].clientX - photoPrevX;
+    photoY += e.touches[0].clientY - photoPrevY;
+    photoPrevX = e.touches[0].clientX;
+    photoPrevY = e.touches[0].clientY;
+    applyPhotoTransform();
+  } else if (e.touches.length === 2 && photoLastPinchDist !== null) {
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    const rect = photoView.getBoundingClientRect();
+    const mx = cx - rect.left - rect.width / 2;
+    const my = cy - rect.top  - rect.height / 2;
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const prevScale = photoScale;
+    photoScale = Math.max(1, Math.min(8, photoScale * (dist / photoLastPinchDist)));
+    const ratio = photoScale / prevScale;
+    photoX = mx - ratio * (mx - photoX);
+    photoY = my - ratio * (my - photoY);
+    clampPhotoPos();
+    photoLastPinchDist = dist;
+    applyPhotoTransform();
+  }
+}, { passive: true });
+
+photoView.addEventListener('touchend', e => {
+  if (e.touches.length < 2) photoLastPinchDist = null;
+  if (e.touches.length === 0) photoIsDragging = false;
+});
+
+// ジャイロ
+let deviceAlpha = 0, deviceBeta = 0, deviceGamma = 0;
+window.addEventListener('deviceorientation', e => {
+  deviceAlpha = e.alpha || 0;
+  deviceBeta  = e.beta  || 0;
+  deviceGamma = e.gamma || 0;
+});
+
+// ── テクスチャ読み込み & 部屋切替 ──
+const textureCache = {};
+
+function loadRoom(roomId, animate = true, shotIndex = 0) {
+  const room = rooms.find(r => r.id === roomId);
+  if (!room) return;
+
+  document.getElementById('loading').classList.remove('hidden');
+  currentRoomId = roomId;
+  currentShotIndex = shotIndex;
+  targetFov = 75;
+  photoScale = 1; photoTargetScale = 1;
+  photoX = 0; photoY = 0;
+  applyPhotoTransform();
+
+  // ルームリストUI更新
+  document.querySelectorAll('.room-thumb').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === roomId);
+  });
+  document.getElementById('room-name').textContent = room.name;
+  renderRoomLinks(room);
+  renderFloorplanMarkers(roomId);
+
+  // ショット切り替えボタン更新
+  const shotBtns = document.getElementById('shot-btns');
+  shotBtns.innerHTML = '';
+  if (room.shots.length > 1) {
+    room.shots.forEach((shot, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'shot-btn' + (i === shotIndex ? ' active' : '');
+      btn.textContent = shot.label || `ショット${i+1}`;
+      btn.addEventListener('click', () => loadRoom(roomId, false, i));
+      shotBtns.appendChild(btn);
+    });
+  }
+
+  const imageUrl = room.shots[shotIndex].imageUrl;
+  const is360 = (room.type !== 'photo');
+
+  const photoView = document.getElementById('photo-view');
+  const photoImg  = document.getElementById('photo-img');
+
+  if (!is360) {
+    // 通常写真モード
+    if (sphereMesh) { scene.remove(sphereMesh); sphereMesh.material.dispose(); sphereMesh = null; }
+    hotspotContainer.innerHTML = '';
+    photoImg.src = imageUrl;
+    photoView.classList.add('active');
+    document.getElementById('loading').classList.add('hidden');
+    if (animate) targetLon = lon + 15;
+    return;
+  }
+
+  // 360°モード
+  photoView.classList.remove('active');
+
+  const loadTexture = (url) => {
+    if (textureCache[url]) return Promise.resolve(textureCache[url]);
+    return new Promise((res, rej) => {
+      textureLoader.load(url, tex => { textureCache[url] = tex; res(tex); }, undefined, rej);
+    });
+  };
+
+  loadTexture(imageUrl)
+    .then(texture => {
+      if (sphereMesh) {
+        scene.remove(sphereMesh);
+        sphereMesh.material.dispose();
+      }
+      const material = new THREE.MeshBasicMaterial({ map: texture });
+      sphereMesh = new THREE.Mesh(geometry, material);
+      scene.add(sphereMesh);
+
+      renderHotspots(room);
+      document.getElementById('loading').classList.add('hidden');
+      if (animate) targetLon = lon + 15;
+    })
+    .catch(() => {
+      document.getElementById('loading').classList.add('hidden');
+      alert('画像の読み込みに失敗しました。\nURLを確認してください：\n' + imageUrl);
+    });
+}
+
+// ── ホットスポット ──
+const hotspotContainer = document.createElement('div');
+hotspotContainer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden;';
+document.body.appendChild(hotspotContainer);
+
+function renderHotspots(room) {
+  hotspotContainer.innerHTML = '';
+  room.hotspots.forEach(hs => {
+    const target = rooms.find(r => r.id === hs.targetId);
+    if (!target) return;
+
+    const el = document.createElement('div');
+    el.className = 'hotspot';
+    el.dataset.yaw = hs.yaw;
+    el.style.pointerEvents = 'all';
+    el.innerHTML = `
+      <div class="hotspot-inner">
+        <div class="hotspot-arrow">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L8 8h3v8H9l3 6 3-6h-2V8h3z"/>
+          </svg>
+        </div>
+        <span class="hotspot-label">${hs.label || target.name}</span>
+      </div>`;
+    el.addEventListener('click', () => {
+      el.style.pointerEvents = 'none';
+      loadRoom(hs.targetId);
+    });
+    hotspotContainer.appendChild(el);
+  });
+}
+
+// ホットスポット位置を毎フレーム更新
+function updateHotspotPositions() {
+  const hotspots = hotspotContainer.querySelectorAll('.hotspot');
+  hotspots.forEach(el => {
+    const yawDeg = parseFloat(el.dataset.yaw);
+    const pitchDeg = -15; // 少し下目
+
+    const yawRad   = THREE.MathUtils.degToRad(yawDeg + lon);
+    const pitchRad = THREE.MathUtils.degToRad(pitchDeg - lat);
+
+    // 球面→正面判定
+    const dir = new THREE.Vector3(
+      Math.sin(yawRad) * Math.cos(pitchRad),
+      Math.sin(pitchRad),
+      -Math.cos(yawRad) * Math.cos(pitchRad)
+    );
+    dir.normalize();
+
+    // カメラの向きと比較（正面にあるか）
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir);
+    const dot = dir.dot(camDir);
+
+    if (dot < 0.1) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = '';
+
+    // 画面座標へ投影
+    const vec = dir.clone().project(camera);
+    const x = (vec.x + 1) / 2 * window.innerWidth;
+    const y = (-vec.y + 1) / 2 * window.innerHeight;
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
+    el.style.opacity = Math.min(1, (dot - 0.1) * 4);
+  });
+}
+
+// ── アニメーションループ ──
+function animate() {
+  requestAnimationFrame(animate);
+
+  // スムーズ補間
+  lon += (targetLon - lon) * 0.08;
+  lat += (targetLat - lat) * 0.08;
+  lat = Math.max(-85, Math.min(85, lat));
+  fov += (targetFov - fov) * 0.1;
+  camera.fov = fov;
+  camera.updateProjectionMatrix();
+
+  const phi   = THREE.MathUtils.degToRad(90 - lat);
+  const theta = THREE.MathUtils.degToRad(lon);
+
+  camera.lookAt(
+    Math.sin(phi) * Math.cos(theta),
+    Math.cos(phi),
+    Math.sin(phi) * Math.sin(theta)
+  );
+
+  updateHotspotPositions();
+  renderer.render(scene, camera);
+}
+
+// ── ウィンドウリサイズ ──
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── ルームリストUI構築 ──
+function buildRoomList() {
+  const list = document.getElementById('room-list');
+  list.innerHTML = '';
+  rooms.forEach(room => {
+    const div = document.createElement('div');
+    div.className = 'room-thumb' + (room.id === currentRoomId ? ' active' : '');
+    div.dataset.id = room.id;
+    div.innerHTML = `
+      <div class="thumb-img-wrap">
+        <img src="${room.shots[0].imageUrl}" alt="${room.name}" loading="lazy">
+      </div>
+      <p>${room.name}</p>`;
+    div.addEventListener('click', () => loadRoom(room.id));
+    list.appendChild(div);
+  });
+}
+
+// ── 設定パネル ──
+const editBtn    = document.getElementById('edit-btn');
+const editPanel  = document.getElementById('edit-panel');
+const closePanel = document.getElementById('close-panel');
+const roomInputs = document.getElementById('room-inputs');
+
+editBtn.addEventListener('click', () => {
+  editPanel.classList.add('open');
+  document.getElementById('mode-select').value = tourConfig.mode;
+  document.getElementById('tour-title-input').value = tourConfig.title;
+  document.getElementById('floorplan-url-input').value = tourConfig.floorplanUrl;
+  updateModeSectionVisibility();
+  buildGlobalLinkInputs();
+  buildEditInputs();
+});
+closePanel.addEventListener('click', () => editPanel.classList.remove('open'));
+
+document.getElementById('mode-select').addEventListener('change', e => {
+  tourConfig.mode = e.target.value;
+  updateModeSectionVisibility();
+});
+
+function updateModeSectionVisibility() {
+  // 両モードで共通リンクを表示するため何もしない
+}
+
+function buildGlobalLinkInputs() {
+  const container = document.getElementById('global-link-inputs');
+  container.innerHTML = '';
+  tourConfig.globalLinks.forEach((link, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:8px;';
+    row.innerHTML = `
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="text" placeholder="ラベル（例：地図で見る）" value="${link.label}" data-li="${i}" data-field="label" style="width:100px;">
+        <input type="text" placeholder="URL" value="${link.url}" data-li="${i}" data-field="url" style="flex:1;">
+        <button class="remove-btn remove-link-btn" data-i="${i}">×</button>
+      </div>`;
+    container.appendChild(row);
+  });
+  container.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      tourConfig.globalLinks[e.target.dataset.li][e.target.dataset.field] = e.target.value;
+    });
+  });
+  container.querySelectorAll('.remove-link-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      tourConfig.globalLinks.splice(parseInt(e.target.dataset.i), 1);
+      buildGlobalLinkInputs();
+    });
+  });
+}
+
+document.getElementById('add-link-btn').addEventListener('click', () => {
+  if (tourConfig.globalLinks.length >= 3) return alert('リンクは最大3本です');
+  tourConfig.globalLinks.push({ label: '', url: '' });
+  buildGlobalLinkInputs();
+});
+
+function buildEditInputs() {
+  roomInputs.innerHTML = '';
+  rooms.forEach((room, i) => {
+    const div = document.createElement('div');
+    div.className = 'room-entry';
+    const shotsHtml = room.shots.map((shot, j) => `
+      <div style="display:flex;gap:6px;margin-top:5px;">
+        <input type="text" placeholder="ラベル（例：ドア閉）" value="${shot.label}" data-ri="${i}" data-si="${j}" data-field="label" style="width:90px;">
+        <input type="text" placeholder="画像URL" value="${shot.imageUrl}" data-ri="${i}" data-si="${j}" data-field="imageUrl" style="flex:1;">
+        <button class="remove-btn remove-shot-btn" data-ri="${i}" data-si="${j}" style="font-size:13px;">×</button>
+      </div>`).join('');
+    div.innerHTML = `
+      <label>
+        ルーム ${i+1}
+        <button class="remove-btn remove-room-btn" data-i="${i}" title="削除">×</button>
+      </label>
+      <input type="text" placeholder="部屋名" value="${room.name}" data-field="name" data-i="${i}">
+      <select data-i="${i}" data-field="type" style="margin-top:5px;width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e8e4dd;font-size:12px;padding:7px 10px;outline:none;">
+        <option value="360" ${room.type !== 'photo' ? 'selected' : ''}>360°画像</option>
+        <option value="photo" ${room.type === 'photo' ? 'selected' : ''}>通常写真</option>
+      </select>
+      <small style="margin-top:4px;display:block;">ショット（複数追加で切り替えボタンが出ます）</small>
+      <div class="shots-wrap" data-ri="${i}">${shotsHtml}</div>
+      <button class="add-shot-btn" data-ri="${i}" style="margin-top:5px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ ショット追加</button>`;
+    if (tourConfig.mode === 'photoex') {
+      const linksHtml = (room.links||[]).map((lk,k) =>
+        '<div style="display:flex;gap:6px;margin-top:4px;align-items:center;">' +
+        '<input type="text" placeholder="ラベル" value="' + lk.label + '" data-ri="' + i + '" data-lk="' + k + '" data-field="label" style="width:80px;">' +
+        '<input type="text" placeholder="URL" value="' + lk.url + '" data-ri="' + i + '" data-lk="' + k + '" data-field="url" style="flex:1;">' +
+        '<button class="remove-btn remove-roomlink-btn" data-ri="' + i + '" data-lk="' + k + '">×</button></div>'
+      ).join('');
+      div.innerHTML += '<small style="margin-top:8px;display:block;color:#666;">部屋リンク（最大5本）</small>' +
+        '<div class="room-links-wrap" data-ri="' + i + '">' + linksHtml + '</div>' +
+        '<button class="add-roomlink-btn" data-ri="' + i + '" style="margin-top:4px;font-size:11px;background:none;border:1px dashed #333;border-radius:6px;color:#666;padding:4px 10px;cursor:pointer;width:100%;">＋ リンク追加</button>';
+    }
+    roomInputs.appendChild(div);
+  });
+
+  roomInputs.querySelectorAll('select[data-field="type"]').forEach(sel => {
+    sel.addEventListener('change', e => { rooms[e.target.dataset.i].type = e.target.value; });
+  });
+  roomInputs.querySelectorAll('input[data-field="name"]').forEach(inp => {
+    inp.addEventListener('input', e => { rooms[e.target.dataset.i].name = e.target.value; });
+  });
+  roomInputs.querySelectorAll('input[data-ri]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const ri = e.target.dataset.ri, si = e.target.dataset.si, field = e.target.dataset.field;
+      rooms[ri].shots[si][field] = e.target.value;
+    });
+  });
+  roomInputs.querySelectorAll('.remove-room-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const i = parseInt(e.target.dataset.i);
+      if (rooms.length <= 1) return alert('最低1部屋必要です');
+      rooms.splice(i, 1); buildEditInputs();
+    });
+  });
+  roomInputs.querySelectorAll('.remove-shot-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const ri = parseInt(e.target.dataset.ri), si = parseInt(e.target.dataset.si);
+      if (rooms[ri].shots.length <= 1) return alert('最低1ショット必要です');
+      rooms[ri].shots.splice(si, 1); buildEditInputs();
+    });
+  });
+  roomInputs.querySelectorAll('.add-roomlink-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const ri = parseInt(e.target.dataset.ri);
+      if ((rooms[ri].links||[]).length >= 5) return alert('リンクは最大5本です');
+      if (!rooms[ri].links) rooms[ri].links = [];
+      rooms[ri].links.push({ label: '', url: '' });
+      buildEditInputs();
+    });
+  });
+  roomInputs.querySelectorAll('.remove-roomlink-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const ri = parseInt(e.target.dataset.ri), lk = parseInt(e.target.dataset.lk);
+      rooms[ri].links.splice(lk, 1);
+      buildEditInputs();
+    });
+  });
+  roomInputs.querySelectorAll('input[data-lk]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const ri = e.target.dataset.ri, lk = e.target.dataset.lk;
+      rooms[ri].links[lk][e.target.dataset.field] = e.target.value;
+    });
+  });
+  roomInputs.querySelectorAll('.add-shot-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const ri = parseInt(e.target.dataset.ri);
+      rooms[ri].shots.push({ label: '', imageUrl: '' });
+      buildEditInputs();
+    });
+  });
+}
+
+document.getElementById('add-room-btn').addEventListener('click', () => {
+  rooms.push({ id: 'room_' + Date.now(), name: '新しい部屋', type: '360', shots: [{ label: '', imageUrl: '' }], hotspots: [] });
+  buildEditInputs();
+});
+
+document.getElementById('apply-btn').addEventListener('click', () => {
+  // テクスチャキャッシュをクリア（URLが変わった場合）
+  tourConfig.title = document.getElementById('tour-title-input').value || 'Virtual Tour';
+  tourConfig.floorplanUrl = document.getElementById('floorplan-url-input').value;
+  document.querySelector('#header h1').textContent = tourConfig.title;
+  document.querySelector('#floorplan img').src = tourConfig.floorplanUrl;
+  Object.keys(textureCache).forEach(k => delete textureCache[k]);
+  buildRoomList();
+  renderGlobalLinks();
+  renderFloorplanMarkers(rooms[0].id);
+  currentRoomId = rooms[0].id;
+  loadRoom(currentRoomId, false);
+  editPanel.classList.remove('open');
+});
+
+function toggleFloorplan() {
+  const fp = document.getElementById('floorplan');
+  if (!fp.classList.contains('expanded')) {
+    fp.classList.add('expanded');
+    document.getElementById('floorplan-label').textContent = '';
+  }
+}
+function closeFloorplan() {
+  document.getElementById('floorplan').classList.remove('expanded');
+  document.getElementById('floorplan-label').textContent = '間取り図 タップで拡大';
+}
+
+function renderFloorplanMarkers(activeRoomId) {
+  const svg = document.getElementById('floorplan-svg');
+  if (!svg) return;
+  svg.innerHTML = '';
+
+  rooms.forEach(room => {
+    if (!room.marker) return;
+    const { x, y } = room.marker;
+    const isActive = room.id === activeRoomId;
+
+    if (isActive) {
+      // パルスリング
+      const pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      pulse.setAttribute('cx', x);
+      pulse.setAttribute('cy', y);
+      pulse.setAttribute('r', '3');
+      pulse.setAttribute('fill', 'none');
+      pulse.setAttribute('stroke', '#c8a97e');
+      pulse.setAttribute('stroke-width', '1.5');
+      pulse.classList.add('fp-marker-pulse');
+      svg.appendChild(pulse);
+
+      // 中心ドット
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', x);
+      dot.setAttribute('cy', y);
+      dot.setAttribute('r', '2.5');
+      dot.setAttribute('fill', '#c8a97e');
+      dot.classList.add('fp-marker-dot');
+      svg.appendChild(dot);
+    } else {
+      // 他の部屋は薄いドット
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', x);
+      dot.setAttribute('cy', y);
+      dot.setAttribute('r', '1.5');
+      dot.setAttribute('fill', 'rgba(200,169,126,0.3)');
+      svg.appendChild(dot);
+    }
+  });
+}
+
+// ── リンク描画 ──
+function renderGlobalLinks() {
+  const container = document.getElementById('global-links');
+  container.innerHTML = '';
+  tourConfig.globalLinks.forEach(link => {
+    if (!link.url) return;
+    const a = document.createElement('a');
+    a.className = 'link-btn';
+    a.textContent = link.label || link.url;
+    a.href = link.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.onclick = e => e.stopPropagation();
+    container.appendChild(a);
+  });
+}
+
+function renderRoomLinks(room) {
+  const container = document.getElementById('room-links');
+  container.innerHTML = '';
+  if (tourConfig.mode !== 'photoex') return;
+  (room.links || []).forEach(link => {
+    if (!link.url) return;
+    const a = document.createElement('a');
+    a.className = 'link-btn';
+    a.textContent = link.label || link.url;
+    a.href = link.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    container.appendChild(a);
+  });
+}
+
+// ── 初期化 ──
+document.querySelector('#header h1').textContent = tourConfig.title;
+buildRoomList();
+renderGlobalLinks();
+renderFloorplanMarkers(rooms[0].id);
+animate();
+loadRoom(rooms[0].id, false);
+
+// ヒント表示
+setTimeout(() => {
+  const hint = document.createElement('div');
+  hint.id = 'hint';
+  hint.textContent = 'ドラッグして視点を動かす';
+  document.body.appendChild(hint);
+  setTimeout(() => hint.remove(), 4500);
+}, 1500);
+</script>
+</body>
+</html>
+
+</script>
+<script>
+// ── 状態 ──
+let state = {
+  title: 'Virtual Tour',
+  mode: 'naiken',
+  floorplanData: '',
+  globalLinks: [{ label: 'Googleマップで見る', url: '' }],
+  rooms: [
+    { id: 'room_1', name: '玄関',   type: '360',   shots: [{ label: '', imageData: '' }], links: [], marker: null },
+    { id: 'room_2', name: 'リビング', type: '360', shots: [{ label: '', imageData: '' }], links: [], marker: null },
+  ]
+};
+
+let activeMarkerRoomId = null; // 現在マーカー設定中の部屋ID
+
+// ── 初期描画 ──
+renderGlobalLinks();
+renderRooms();
+
+// ── モード変更 ──
+function onModeChange() {
+  state.mode = document.getElementById('mode').value;
+  renderRooms();
+}
+
+// ── 間取り図 ──
+function dzOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
+function dzLeave(e) { e.currentTarget.classList.remove('dragover'); }
+function dzDropFloorplan(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadFloorplan(f);
+}
+function floorplanFileChange(e) { if (e.target.files[0]) loadFloorplan(e.target.files[0]); }
+
+function loadFloorplan(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    state.floorplanData = ev.target.result;
+    // ドロップゾーンを画像表示に切り替え
+    const dz = document.getElementById('floorplan-drop');
+    dz.innerHTML = `<img src="${state.floorplanData}" alt="間取り図"><input type="file" accept="image/*" onchange="floorplanFileChange(event)">`;
+
+    // マーカーエリアを表示
+    document.getElementById('floorplan-preview-img').src = state.floorplanData;
+    document.getElementById('floorplan-marker-area').style.display = '';
+    renderMarkerSvg();
+    updateSizeInfo();
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── 間取り図クリック→マーカー設定 ──
+function onFloorplanClick(e) {
+  if (!activeMarkerRoomId) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+  const y = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1);
+  const room = state.rooms.find(r => r.id === activeMarkerRoomId);
+  if (room) {
+    room.marker = { x: parseFloat(x), y: parseFloat(y) };
+    renderMarkerSvg();
+    renderRooms(); // マーカーボタンの表示更新
+  }
+}
+
+function renderMarkerSvg() {
+  const svg = document.getElementById('marker-svg');
+  svg.innerHTML = '';
+  state.rooms.forEach(room => {
+    if (!room.marker) return;
+    const { x, y } = room.marker;
+    const isActive = room.id === activeMarkerRoomId;
+    // ドット
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x + '%');
+    c.setAttribute('cy', y + '%');
+    c.setAttribute('r', isActive ? '5' : '4');
+    c.setAttribute('fill', isActive ? '#c8a97e' : 'rgba(200,169,126,0.4)');
+    c.setAttribute('stroke', '#fff');
+    c.setAttribute('stroke-width', '1');
+    svg.appendChild(c);
+    // ラベル
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', x + '%');
+    t.setAttribute('y', (parseFloat(y) + 4) + '%');
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('font-size', '4');
+    t.setAttribute('fill', '#fff');
+    t.setAttribute('dy', '6');
+    t.textContent = room.name;
+    svg.appendChild(t);
+  });
+}
+
+function setActiveMarkerRoom(roomId) {
+  activeMarkerRoomId = roomId;
+  const room = state.rooms.find(r => r.id === roomId);
+  document.getElementById('modal-room-name').textContent = `「${room.name}」の位置をクリックして設定`;
+  document.getElementById('modal-fp-img').src = state.floorplanData;
+  renderModalSvg();
+  document.getElementById('marker-modal').classList.add('open');
+}
+
+function renderModalSvg() {
+  const svg = document.getElementById('modal-svg');
+  svg.innerHTML = '';
+  state.rooms.forEach(room => {
+    if (!room.marker) return;
+    const { x, y } = room.marker;
+    const isActive = room.id === activeMarkerRoomId;
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x + '%');
+    c.setAttribute('cy', y + '%');
+    c.setAttribute('r', isActive ? '2.5%' : '1.5%');
+    c.setAttribute('fill', isActive ? '#c8a97e' : 'rgba(200,169,126,0.4)');
+    c.setAttribute('stroke', '#fff');
+    c.setAttribute('stroke-width', '0.5%');
+    svg.appendChild(c);
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', x + '%');
+    t.setAttribute('y', (parseFloat(y) + 5) + '%');
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('font-size', '3%');
+    t.setAttribute('fill', '#fff');
+    t.textContent = room.name;
+    svg.appendChild(t);
+  });
+}
+
+document.getElementById('marker-canvas-wrap').addEventListener('click', e => {
+  if (!activeMarkerRoomId) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+  const y = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1);
+  const room = state.rooms.find(r => r.id === activeMarkerRoomId);
+  if (room) {
+    room.marker = { x: parseFloat(x), y: parseFloat(y) };
+    renderModalSvg();
+    renderMarkerSvg();
+    renderRooms();
+    // 少し待ってモーダルを閉じる
+    setTimeout(() => {
+      document.getElementById('marker-modal').classList.remove('open');
+      activeMarkerRoomId = null;
+    }, 600);
+  }
+});
+
+// ── 共通リンク ──
+function renderGlobalLinks() {
+  const c = document.getElementById('global-links-list');
+  c.innerHTML = '';
+  state.globalLinks.forEach((lk, i) => {
+    const row = document.createElement('div');
+    row.className = 'link-row';
+    row.innerHTML = `
+      <input type="text" class="link-label-input" placeholder="ラベル" value="${lk.label}" oninput="state.globalLinks[${i}].label=this.value">
+      <input type="text" placeholder="URL（https://...）" value="${lk.url}" oninput="state.globalLinks[${i}].url=this.value">
+      <button class="icon-btn" onclick="removeGlobalLink(${i})">×</button>`;
+    c.appendChild(row);
+  });
+}
+function addGlobalLink() {
+  if (state.globalLinks.length >= 3) return alert('最大3本です');
+  state.globalLinks.push({ label: '', url: '' });
+  renderGlobalLinks();
+}
+function removeGlobalLink(i) { state.globalLinks.splice(i, 1); renderGlobalLinks(); }
+
+// ── 部屋 ──
+function renderRooms() {
+  const c = document.getElementById('rooms-list');
+  c.innerHTML = '';
+  state.rooms.forEach((room, ri) => {
+    const card = document.createElement('div');
+    card.className = 'room-card';
+
+    // ショット
+    const shotsHtml = room.shots.map((shot, si) => `
+      <div class="shot-row">
+        <div class="shot-thumb" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDropShot(event,${ri},${si})">
+          ${shot.imageData ? `<img src="${shot.imageData}">` : '<span>画像<br>ドロップ</span>'}
+          <input type="file" accept="image/*" onchange="shotFileChange(event,${ri},${si})">
+        </div>
+        <div class="shot-inputs">
+          <input type="text" placeholder="ショットラベル（例：ドア開）" value="${shot.label}" oninput="state.rooms[${ri}].shots[${si}].label=this.value">
+        </div>
+        <button class="icon-btn" onclick="removeShot(${ri},${si})">×</button>
+      </div>`).join('');
+
+    // 部屋リンク（写真展モードのみ）
+    const roomLinksHtml = state.mode === 'photoex' ? `
+      <div style="margin-top:10px;">
+        <div class="sub-label">部屋リンク（最大5本）</div>
+        ${room.links.map((lk, li) => `
+        <div class="link-row">
+          <input type="text" class="link-label-input" placeholder="ラベル" value="${lk.label}" oninput="state.rooms[${ri}].links[${li}].label=this.value">
+          <input type="text" placeholder="URL" value="${lk.url}" oninput="state.rooms[${ri}].links[${li}].url=this.value">
+          <button class="icon-btn" onclick="removeRoomLink(${ri},${li})">×</button>
+        </div>`).join('')}
+        <button class="add-btn" onclick="addRoomLink(${ri})">＋ リンク追加</button>
+      </div>` : '';
+
+    // マーカーボタン
+    const hasMarker = !!room.marker;
+    const isSettingThis = activeMarkerRoomId === room.id;
+    const markerBtnLabel = hasMarker
+      ? `📍 位置設定済み（${room.marker.x}%, ${room.marker.y}%）`
+      : '📍 間取り図で位置を設定';
+
+    card.innerHTML = `
+      <div class="room-card-header">
+        <span class="room-num">ROOM ${ri+1}</span>
+        <input type="text" placeholder="部屋名" value="${room.name}" oninput="state.rooms[${ri}].name=this.value; renderMarkerSvg();">
+        <select oninput="state.rooms[${ri}].type=this.value" style="width:90px;font-size:12px;padding:6px 8px;">
+          <option value="360" ${room.type==='360'?'selected':''}>360°</option>
+          <option value="photo" ${room.type==='photo'?'selected':''}>通常写真</option>
+        </select>
+        <button class="del-btn" onclick="removeRoom(${ri})">×</button>
+      </div>
+      <div class="sub-label">ショット</div>
+      <div>${shotsHtml}</div>
+      <button class="add-btn" onclick="addShot(${ri})">＋ ショット追加</button>
+      ${state.floorplanData ? `
+      <button class="marker-btn ${hasMarker ? 'set' : ''}" onclick="setActiveMarkerRoom('${room.id}')">
+        ${hasMarker ? '<span class="marker-dot-preview"></span>' : ''}
+        ${markerBtnLabel}
+      </button>` : ''}
+      ${roomLinksHtml}`;
+    c.appendChild(card);
+  });
+  renderMarkerSvg();
+}
+
+function addRoom() {
+  state.rooms.push({ id: 'room_'+Date.now(), name: '部屋'+(state.rooms.length+1), type: '360', shots: [{label:'',imageData:''}], links: [], marker: null });
+  renderRooms();
+}
+function removeRoom(ri) {
+  if (state.rooms.length <= 1) return alert('最低1部屋必要です');
+  state.rooms.splice(ri, 1);
+  renderRooms();
+}
+function addShot(ri) { state.rooms[ri].shots.push({label:'',imageData:''}); renderRooms(); }
+function removeShot(ri, si) {
+  if (state.rooms[ri].shots.length <= 1) return alert('最低1ショット必要です');
+  state.rooms[ri].shots.splice(si, 1); renderRooms();
+}
+function addRoomLink(ri) {
+  if (state.rooms[ri].links.length >= 5) return alert('最大5本です');
+  state.rooms[ri].links.push({label:'',url:''}); renderRooms();
+}
+function removeRoomLink(ri, li) { state.rooms[ri].links.splice(li, 1); renderRooms(); }
+
+// ── ショット画像 ──
+function dzDropShot(e, ri, si) {
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadShot(f, ri, si);
+}
+function shotFileChange(e, ri, si) { if (e.target.files[0]) loadShot(e.target.files[0], ri, si); }
+function loadShot(file, ri, si) {
+  const reader = new FileReader();
+  reader.onload = ev => { state.rooms[ri].shots[si].imageData = ev.target.result; renderRooms(); updateSizeInfo(); };
+  reader.readAsDataURL(file);
+}
+
+// ── サイズ表示 ──
+function updateSizeInfo() {
+  let total = state.floorplanData.length;
+  state.rooms.forEach(r => r.shots.forEach(s => { total += s.imageData.length; }));
+  const mb = (total * 0.75 / 1024 / 1024).toFixed(1);
+  const el = document.getElementById('size-info');
+  if (total === 0) { el.textContent = ''; return; }
+  el.style.color = parseFloat(mb) > 80 ? '#e06060' : parseFloat(mb) > 30 ? '#e0a060' : '#6a6';
+  el.textContent = `推定サイズ: 約${mb}MB`;
+}
+
+// ── モーダル（未使用） ──
+function closeMarkerModal() { document.getElementById('marker-modal').classList.remove('open'); }
+
+// ── HTML生成 ──
+function generate() {
+  const title = document.getElementById('title').value || 'Virtual Tour';
+  const mode  = document.getElementById('mode').value;
+
+  const roomsJson = JSON.stringify(state.rooms.map((r, i) => ({
+    id: r.id || 'room_'+i,
+    name: r.name,
+    type: r.type,
+    shots: r.shots.map(s => ({ label: s.label, imageUrl: s.imageData })),
+    links: r.links,
+    marker: r.marker,
+    hotspots: []
+  })));
+
+  const configJson = JSON.stringify({
+    mode, title,
+    floorplanUrl: state.floorplanData,
+    globalLinks: state.globalLinks
+  });
+
+  let html = document.getElementById('base-html-template').textContent;
+
+  // tourConfig置き換え
+  const cfgStart = html.indexOf('let tourConfig = {');
+  const cfgEnd   = html.indexOf('};', cfgStart) + 2;
+  html = html.slice(0, cfgStart) + 'let tourConfig = ' + configJson + ';' + html.slice(cfgEnd);
+
+  // SAMPLE_ROOMS置き換え
+  const rmStart = html.indexOf('const SAMPLE_ROOMS = [');
+  const rmEnd   = html.indexOf('];', rmStart) + 2;
+  html = html.slice(0, rmStart) + 'const SAMPLE_ROOMS = ' + roomsJson + ';' + html.slice(rmEnd);
+
+  // titleタグ置き換え
+  const tStart = html.indexOf('<title>');
+  const tEnd   = html.indexOf('</title>') + 8;
+  html = html.slice(0, tStart) + '<title>' + title + '</title>' + html.slice(tEnd);
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'virtual-tour.html'; a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
